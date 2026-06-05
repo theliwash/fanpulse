@@ -12,6 +12,57 @@ type SentimentResult = {
   key_talking_point: string;
 };
 
+const TEAM_FLAGS: Record<string, string> = {
+  "Argentina": "🇦🇷",
+  "Algeria": "🇩🇿",
+  "Australia": "🇦🇺",
+  "Austria": "🇦🇹",
+  "Belgium": "🇧🇪",
+  "Bosnia-Herzegovina": "🇧🇦",
+  "Brazil": "🇧🇷",
+  "Canada": "🇨🇦",
+  "Cape Verde Islands": "🇨🇻",
+  "Colombia": "🇨🇴",
+  "Croatia": "🇭🇷",
+  "Curaçao": "🇨🇼",
+  "Czechia": "🇨🇿",
+  "Congo DR": "🇨🇩",
+  "Ecuador": "🇪🇨",
+  "England": "🏴",
+  "Egypt": "🇪🇬",
+  "France": "🇫🇷",
+  "Germany": "🇩🇪",
+  "Ghana": "🇬🇭",
+  "Haiti": "🇭🇹",
+  "Iran": "🇮🇷",
+  "Iraq": "🇮🇶",
+  "Ivory Coast": "🇨🇮",
+  "Japan": "🇯🇵",
+  "Jordan": "🇯🇴",
+  "Mexico": "🇲🇽",
+  "Morocco": "🇲🇦",
+  "Netherlands": "🇳🇱",
+  "New Zealand": "🇳🇿",
+  "Norway": "🇳🇴",
+  "Panama": "🇵🇦",
+  "Paraguay": "🇵🇾",
+  "Portugal": "🇵🇹",
+  "Qatar": "🇶🇦",
+  "Saudi Arabia": "🇸🇦",
+  "Scotland": "🏴",
+  "Senegal": "🇸🇳",
+  "South Africa": "🇿🇦",
+  "South Korea": "🇰🇷",
+  "Spain": "🇪🇸",
+  "Sweden": "🇸🇪",
+  "Switzerland": "🇨🇭",
+  "Tunisia": "🇹🇳",
+  "Turkey": "🇹🇷",
+  "Uruguay": "🇺🇾",
+  "United States": "🇺🇸",
+  "Uzbekistan": "🇺🇿",
+};
+
 async function parseApiError(response: Response): Promise<string> {
   const data: unknown = await response.json().catch(() => null);
   if (
@@ -49,6 +100,7 @@ export default function DashboardPage() {
   const [analysingIds, setAnalysingIds] = useState<Record<string, boolean>>({});
   const [analyseErrors, setAnalyseErrors] = useState<Record<string, string>>({});
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   const fetchMatches = useCallback(async () => {
     setLoading(true);
@@ -81,8 +133,9 @@ export default function DashboardPage() {
   const liveMatches = matches.filter((m) => liveStatuses.has(m.status));
   const upcomingMatches = matches
     .filter((m) => upcomingStatuses.has(m.status) || m.status === "SCHEDULED")
-    .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
-    .slice(0, 8);
+    .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+
+  const displayedUpcomingMatches = showAllUpcoming ? upcomingMatches : upcomingMatches.slice(0, 8);
 
   async function handleAnalyse(match: FootballMatchSummary) {
     setAnalyseErrors((p) => ({ ...p, [String(match.id)]: "" }));
@@ -138,191 +191,220 @@ export default function DashboardPage() {
     }
   }
 
+  const tournamentStart = useMemo(() => new Date('2026-06-11T00:00:00Z'), []);
+  const daysUntil = (() => {
+    const now = new Date();
+    const diff = tournamentStart.getTime() - now.getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  })();
+
+  function getMoodStyles(mood: string) {
+    const lower = String(mood).toLowerCase();
+    if (lower === 'euphoric' || lower === 'confident') {
+      return { bg: 'rgba(20,83,45,0.08)', bar: '#16a34a', text: 'text-emerald-200' };
+    }
+    if (lower === 'neutral') {
+      return { bg: 'rgba(100,116,139,0.06)', bar: '#9ca3af', text: 'text-neutral-200' };
+    }
+    if (lower === 'nervous' || lower === 'frustrated') {
+      return { bg: 'rgba(245,158,11,0.08)', bar: '#f59e0b', text: 'text-amber-100' };
+    }
+    return { bg: 'rgba(127,29,29,0.08)', bar: '#b91c1c', text: 'text-red-100' };
+  }
+
   return (
-    <main className="mx-auto min-h-screen max-w-5xl p-6">
-      <div style={{ background: "var(--background)", color: "var(--foreground)" }}>
-        <header className="mb-6 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">FanPulse ⚽</h1>
-              <p className="text-sm text-neutral-400">Real-time World Cup fan sentiment</p>
-            </div>
-            <div className="text-right text-sm text-neutral-400">
-              <div>Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : "—"}</div>
-              <div className="mt-2">
-                <button
-                  onClick={fetchMatches}
-                  className="rounded-md bg-neutral-800 px-3 py-1 text-sm text-neutral-200 hover:bg-neutral-700"
-                >
-                  Refresh now
-                </button>
-              </div>
+    <main className="min-h-screen bg-gray-950 text-white p-6">
+      <div className="max-w-6xl mx-auto">
+        <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
+          <div>
+            <h1 className="text-4xl font-bold text-white">FanPulse ⚽</h1>
+            <p className="text-gray-400">Real-time World Cup 2026 fan sentiment</p>
+            <div className="mt-2 text-emerald-400">Tournament starts in {daysUntil} day{daysUntil !== 1 ? 's' : ''}</div>
+          </div>
+
+          <div className="mt-4 md:mt-0 text-gray-400 text-right">
+            <div className="text-sm">Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}</div>
+            <div className="mt-2">
+              <button onClick={fetchMatches} className="text-gray-400">Refresh</button>
             </div>
           </div>
         </header>
 
-        <section className="mb-8">
-          <h2 className="mb-3 text-xl font-semibold">Live Now</h2>
-          {loading && <p className="text-sm text-neutral-400">Loading matches…</p>}
-          {error && <p className="rounded-md border border-red-800 bg-red-950/40 px-3 py-2 text-sm text-red-300">{error}</p>}
-
-          {!loading && liveMatches.length === 0 && <p className="text-sm text-neutral-500">No live matches right now.</p>}
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {liveMatches.map((m) => (
-              <article key={m.id} className="rounded-lg border border-neutral-700 bg-neutral-900/40 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold text-neutral-100">{m.homeTeam} vs {m.awayTeam}</h3>
-                      <span className="ml-2 rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white">LIVE</span>
-                    </div>
-                    <p className="mt-1 text-sm text-neutral-300">{formatScore(m.score)}</p>
-                    <p className="mt-1 text-sm text-neutral-500">{m.status}</p>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    <button
-                      onClick={() => handleAnalyse(m)}
-                      disabled={!!analysingIds[String(m.id)]}
-                      className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-                    >
-                      {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse Sentiment'}
-                    </button>
-
-                    <button
-                      onClick={() => setExpandedMatchId((prev) => (prev === String(m.id) ? null : String(m.id)))}
-                      className="rounded-md bg-neutral-700 px-2 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-600"
-                    >
-                      {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
-                    </button>
-
-                    {analyseErrors[String(m.id)] && (
-                      <p className="text-xs text-red-400">{analyseErrors[String(m.id)]}</p>
-                    )}
-                  </div>
-                </div>
-
-                {sentiments[String(m.id)] && (
-                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {sentiments[String(m.id)].map((r) => (
-                      <div key={r.nation} className="rounded-md border border-neutral-700 bg-neutral-800 p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium text-neutral-100">{r.nation}</div>
-                          <div className="text-sm text-neutral-200">{r.mood_label}</div>
-                        </div>
-                        <div className="mt-2 text-sm text-neutral-300">Top emotion: <span className="font-medium text-neutral-100">{r.top_emotion}</span></div>
-                        <div className="mt-1 text-sm text-neutral-300">{r.key_talking_point}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {expandedMatchId === String(m.id) && (
-                  <div className="mt-4">
-                    <ReactionForm
-                      matchId={String(m.id)}
-                      homeTeam={m.homeTeam}
-                      onReactionSubmitted={() => handleAnalyse(m)}
-                    />
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-
         <section>
-          <h2 className="mb-3 text-xl font-semibold">Upcoming</h2>
-          {!loading && upcomingMatches.length === 0 && <p className="text-sm text-neutral-500">No upcoming matches.</p>}
+          <h2 className="text-2xl font-bold text-white mb-4 mt-8">Matches</h2>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {upcomingMatches.map((m) => {
-              const isLive = liveStatuses.has(m.status);
-              const isPreMatch = m.status === "TIMED" || m.status === "SCHEDULED";
+          {error && <div className="text-red-400 text-sm mb-4">{error}</div>}
 
-              if (isPreMatch) {
-                // Simple pre-match card: teams, kickoff and Pre-match badge
-                return (
-                  <article key={m.id} className="rounded-lg border border-neutral-700 bg-neutral-900/40 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-semibold text-neutral-100">{m.homeTeam} vs {m.awayTeam}</h3>
-                          <span className="ml-2 rounded bg-yellow-600 px-2 py-1 text-xs font-medium text-white">Pre-match</span>
-                        </div>
-                        <p className="mt-1 text-sm text-neutral-300">Kickoff: {formatKickoff(m.utcDate)}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-gray-800 animate-pulse rounded-xl h-32" />
+              ))
+            ) : (
+              liveMatches.map((m) => (
+                <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-white flex items-center justify-end gap-2">
+                        <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
+                        <span>{m.homeTeam}</span>
                       </div>
+                      <div className="text-gray-400 text-sm">{m.status}</div>
                     </div>
-                  </article>
-                );
-              }
 
-              return (
-                <article key={m.id} className="rounded-lg border border-neutral-700 bg-neutral-900/40 p-4">
-                  <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-neutral-100">{m.homeTeam} vs {m.awayTeam}</h3>
-                        <span className="ml-2 rounded bg-neutral-700 px-2 py-1 text-xs font-medium text-neutral-200">{m.status}</span>
+                      <div className="text-2xl font-bold text-white text-center">{formatScore(m.score)}</div>
+                      <div className="flex justify-center mt-2">
+                        <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-3 py-1 text-xs font-semibold animate-pulse">LIVE</span>
                       </div>
-                      <p className="mt-1 text-sm text-neutral-300">Kickoff: {formatKickoff(m.utcDate)}</p>
+                      <div className="flex justify-center mt-3 flex-col items-center">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAnalyse(m)}
+                            disabled={!!analysingIds[String(m.id)]}
+                            className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                          >
+                            {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse Sentiment'}
+                          </button>
+                          <button
+                            onClick={() => setExpandedMatchId((prev) => (prev === String(m.id) ? null : String(m.id)))}
+                            className="text-gray-400 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+                          >
+                            {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
+                          </button>
+                        </div>
+                        {analyseErrors[String(m.id)] && <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>}
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                      {isLive && (
-                        <button
-                          onClick={() => handleAnalyse(m)}
-                          disabled={!!analysingIds[String(m.id)]}
-                          className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-                        >
-                          {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse Sentiment'}
-                        </button>
-                      )}
-
-                      {isLive && (
-                        <button
-                          onClick={() => setExpandedMatchId((prev) => (prev === String(m.id) ? null : String(m.id)))}
-                          className="rounded-md bg-neutral-700 px-2 py-1 text-xs font-medium text-neutral-200 hover:bg-neutral-600"
-                        >
-                          {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
-                        </button>
-                      )}
-
-                      {analyseErrors[String(m.id)] && (
-                        <p className="text-xs text-red-400">{analyseErrors[String(m.id)]}</p>
-                      )}
+                    <div className="text-left">
+                      <div className="text-lg font-bold text-white flex items-center gap-2">
+                        <span>{m.awayTeam}</span>
+                        <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
+                      </div>
+                      <div className="text-gray-400 text-sm">Kickoff: {formatKickoff(m.utcDate)}</div>
                     </div>
                   </div>
 
-                  {isLive && sentiments[String(m.id)] && (
-                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                      {sentiments[String(m.id)].map((r) => (
-                        <div key={r.nation} className="rounded-md border border-neutral-700 bg-neutral-800 p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium text-neutral-100">{r.nation}</div>
-                            <div className="text-sm text-neutral-200">{r.mood_label}</div>
+                  {sentiments[String(m.id)] && (
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {sentiments[String(m.id)].map((r) => {
+                        const mood = String(r.mood_label).toLowerCase();
+                        const widthPercent = Math.max(0, Math.min(100, (r.sentiment_score + 100) / 2));
+                        let cardClass = 'rounded-xl p-4 bg-gray-800 border border-gray-700';
+                        if (mood === 'euphoric' || mood === 'confident') cardClass = 'rounded-xl p-4 bg-emerald-950 border border-emerald-800';
+                        if (mood === 'nervous' || mood === 'frustrated') cardClass = 'rounded-xl p-4 bg-amber-950 border border-amber-800';
+                        if (mood === 'devastated' || mood === 'furious') cardClass = 'rounded-xl p-4 bg-red-950 border border-red-800';
+
+                        return (
+                          <div key={r.nation} className={cardClass}>
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm font-medium text-gray-300">{TEAM_FLAGS[r.nation] ?? ''} {r.nation}</div>
+                              <div className="text-lg font-bold text-white">{r.mood_label}</div>
+                            </div>
+
+                                    <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
+                                      {(() => {
+                                        const styles = getMoodStyles(r.mood_label);
+                                        return <div style={{ width: `${widthPercent}%`, height: '100%', borderRadius: 9999, background: styles.bar }} />;
+                                      })()}
+                                    </div>
+
+                            <div className="text-xs text-gray-400 mt-1">Top emotion: <span className="font-medium text-gray-300">{r.top_emotion}</span></div>
+                            <div className="text-xs text-gray-400 mt-1">{r.key_talking_point}</div>
                           </div>
-                          <div className="mt-2 text-sm text-neutral-300">Top emotion: <span className="font-medium text-neutral-100">{r.top_emotion}</span></div>
-                          <div className="mt-1 text-sm text-neutral-300">{r.key_talking_point}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
-                  {isLive && expandedMatchId === String(m.id) && (
+                  {expandedMatchId === String(m.id) && (
                     <div className="mt-4">
-                      <ReactionForm
-                        matchId={String(m.id)}
-                        homeTeam={m.homeTeam}
-                        onReactionSubmitted={() => handleAnalyse(m)}
-                      />
+                      <ReactionForm matchId={String(m.id)} homeTeam={m.homeTeam} onReactionSubmitted={() => handleAnalyse(m)} />
                     </div>
                   )}
                 </article>
-              );
-            })}
+              ))
+            )}
           </div>
+
+          <h2 className="text-2xl font-bold text-white mb-4 mt-8">Upcoming</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-gray-800 animate-pulse rounded-xl h-32" />
+              ))
+            ) : (
+              displayedUpcomingMatches.map((m) => {
+                const isPreMatch = m.status === 'TIMED' || m.status === 'SCHEDULED';
+                return (
+                  <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
+                    <div className="grid grid-cols-3 items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-white flex items-center justify-end gap-2">
+                          <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
+                          <span>{m.homeTeam}</span>
+                        </div>
+                        <div className="text-gray-400 text-sm">&nbsp;</div>
+                      </div>
+
+                      <div>
+                        <div className="text-2xl font-bold text-white text-center">{isPreMatch ? formatKickoff(m.utcDate) : formatScore(m.score)}</div>
+                        <div className="flex justify-center mt-2">
+                          {isPreMatch ? (
+                            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-3 py-1 text-xs font-semibold">Pre-match</span>
+                          ) : (
+                            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-3 py-1 text-xs font-semibold animate-pulse">LIVE</span>
+                          )}
+                        </div>
+                        <div className="flex justify-center mt-3 flex-col items-center">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAnalyse(m)}
+                              disabled={!!analysingIds[String(m.id)]}
+                              className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                            >
+                              {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse Sentiment'}
+                            </button>
+                            <button
+                              onClick={() => setExpandedMatchId((prev) => (prev === String(m.id) ? null : String(m.id)))}
+                              className="text-gray-400 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+                            >
+                              {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
+                            </button>
+                          </div>
+                          {analyseErrors[String(m.id)] && <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>}
+                        </div>
+                      </div>
+
+                      <div className="text-left">
+                        <div className="text-lg font-bold text-white flex items-center gap-2">
+                          <span>{m.awayTeam}</span>
+                          <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
+                        </div>
+                        <div className="text-gray-400 text-sm">&nbsp;</div>
+                      </div>
+                    </div>
+
+                    {expandedMatchId === String(m.id) && (
+                      <div className="mt-4">
+                        <ReactionForm matchId={String(m.id)} homeTeam={m.homeTeam} onReactionSubmitted={() => handleAnalyse(m)} />
+                      </div>
+                    )}
+                  </article>
+                );
+              })
+            )}
+          </div>
+
+          {upcomingMatches.length > 8 && (
+            <div>
+              <button onClick={() => setShowAllUpcoming((s) => !s)} className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl py-3 text-sm font-medium transition-colors border border-gray-700 mt-4">
+                {showAllUpcoming ? 'Show less ↑' : `Show all ${upcomingMatches.length} upcoming matches ↓`}
+              </button>
+            </div>
+          )}
         </section>
       </div>
     </main>

@@ -76,12 +76,7 @@ async function parseApiError(response: Response): Promise<string> {
   return `Request failed (${response.status})`;
 }
 
-function formatScore(score: FootballMatchSummary["score"]) {
-  if (!score) return "– : –";
-  const home = score.home ?? "–";
-  const away = score.away ?? "–";
-  return `${home} : ${away}`;
-}
+
 
 function formatKickoff(utcDate: string) {
   return new Date(utcDate).toLocaleString(undefined, {
@@ -244,16 +239,17 @@ export default function DashboardPage() {
               liveMatches.map((m) => (
                 <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
                   <div className="grid grid-cols-3 items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-white flex items-center justify-end gap-2">
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
                         <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
-                        <span>{m.homeTeam}</span>
+                        <div>
+                          <div className="text-lg font-bold text-white">{m.homeTeam}</div>
+                        </div>
                       </div>
-                      <div className="text-gray-400 text-sm">{m.status}</div>
                     </div>
 
-                    <div>
-                      <div className="text-2xl font-bold text-white text-center">{formatScore(m.score)}</div>
+                    <div className="text-center">
+                      <div className="text-sm text-gray-400">{formatKickoff(m.utcDate)}</div>
                       <div className="flex justify-center mt-2">
                         <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-3 py-1 text-xs font-semibold animate-pulse">LIVE</span>
                       </div>
@@ -277,12 +273,13 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="text-left">
-                      <div className="text-lg font-bold text-white flex items-center gap-2">
-                        <span>{m.awayTeam}</span>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2 justify-end">
+                        <div>
+                          <div className="text-lg font-bold text-white">{m.awayTeam}</div>
+                        </div>
                         <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
                       </div>
-                      <div className="text-gray-400 text-sm">Kickoff: {formatKickoff(m.utcDate)}</div>
                     </div>
                   </div>
 
@@ -338,56 +335,92 @@ export default function DashboardPage() {
             ) : (
               displayedUpcomingMatches.map((m) => {
                 const isPreMatch = m.status === 'TIMED' || m.status === 'SCHEDULED';
+                const isLive = m.status === 'LIVE' || m.status === 'IN_PLAY';
+
+                if (isPreMatch) {
+                  return (
+                    <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
+                      <div className="grid grid-cols-3 items-center gap-4">
+                        <div className="text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
+                            <div className="text-lg font-bold text-white">{m.homeTeam}</div>
+                          </div>
+                        </div>
+
+                        <div className="text-center">
+                          <div className="text-sm text-gray-400">{formatKickoff(m.utcDate)}</div>
+                          <div className="flex justify-center mt-2">
+                            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-3 py-1 text-xs font-semibold">Pre-match</span>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="flex items-center gap-2 justify-end">
+                            <div className="text-lg font-bold text-white">{m.awayTeam}</div>
+                            <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                }
+
                 return (
                   <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
                     <div className="grid grid-cols-3 items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-white flex items-center justify-end gap-2">
+                      <div className="text-left">
+                        <div className="flex items-center gap-2">
                           <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
-                          <span>{m.homeTeam}</span>
+                          <div>
+                            <div className="text-lg font-bold text-white">{m.homeTeam}</div>
+                          </div>
                         </div>
-                        <div className="text-gray-400 text-sm">&nbsp;</div>
                       </div>
 
-                      <div>
-                        <div className="text-2xl font-bold text-white text-center">{isPreMatch ? formatKickoff(m.utcDate) : formatScore(m.score)}</div>
+                      <div className="text-center">
+                        <div className="text-sm text-gray-400">{formatKickoff(m.utcDate)}</div>
                         <div className="flex justify-center mt-2">
-                          {isPreMatch ? (
-                            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-3 py-1 text-xs font-semibold">Pre-match</span>
-                          ) : (
+                          {isLive ? (
                             <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-3 py-1 text-xs font-semibold animate-pulse">LIVE</span>
+                          ) : (
+                            <span className="text-sm text-gray-400">{m.status}</span>
                           )}
                         </div>
-                        <div className="flex justify-center mt-3 flex-col items-center">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleAnalyse(m)}
-                              disabled={!!analysingIds[String(m.id)]}
-                              className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-                            >
-                              {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse Sentiment'}
-                            </button>
-                            <button
-                              onClick={() => setExpandedMatchId((prev) => (prev === String(m.id) ? null : String(m.id)))}
-                              className="text-gray-400 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
-                            >
-                              {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
-                            </button>
+
+                        {isLive && (
+                          <div className="mt-3">
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => handleAnalyse(m)}
+                                disabled={!!analysingIds[String(m.id)]}
+                                className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                              >
+                                {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse Sentiment'}
+                              </button>
+                              <button
+                                onClick={() => setExpandedMatchId((prev) => (prev === String(m.id) ? null : String(m.id)))}
+                                className="text-gray-400 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+                              >
+                                {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
+                              </button>
+                            </div>
+                            {analyseErrors[String(m.id)] && <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>}
                           </div>
-                          {analyseErrors[String(m.id)] && <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>}
-                        </div>
+                        )}
                       </div>
 
-                      <div className="text-left">
-                        <div className="text-lg font-bold text-white flex items-center gap-2">
-                          <span>{m.awayTeam}</span>
+                      <div className="text-right">
+                        <div className="flex items-center gap-2 justify-end">
+                          <div>
+                            <div className="text-lg font-bold text-white">{m.awayTeam}</div>
+                          </div>
                           <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
                         </div>
-                        <div className="text-gray-400 text-sm">&nbsp;</div>
                       </div>
                     </div>
 
-                    {expandedMatchId === String(m.id) && (
+                    { !isPreMatch && expandedMatchId === String(m.id) && (
                       <div className="mt-4">
                         <ReactionForm matchId={String(m.id)} homeTeam={m.homeTeam} onReactionSubmitted={() => handleAnalyse(m)} />
                       </div>

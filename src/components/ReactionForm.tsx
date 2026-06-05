@@ -2,11 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 
+interface ReactionRow {
+  id?: number;
+  match_id?: string;
+  nation: string;
+  reaction_text: string;
+  created_at?: string;
+}
+
 interface Props {
   matchId: string;
   homeTeam: string;
-  awayTeam: string;
-  onReactionSubmitted?: (row: any) => void;
+  onReactionSubmitted?: (row: ReactionRow) => void;
 }
 
 const NATIONS = [
@@ -17,7 +24,7 @@ const NATIONS = [
   'Switzerland','Tunisia','Turkey','Ukraine','United States','Uruguay','Wales','Hungary'
 ];
 
-export default function ReactionForm({ matchId, homeTeam, awayTeam, onReactionSubmitted }: Props) {
+export default function ReactionForm({ matchId, homeTeam, onReactionSubmitted }: Props) {
   const [nation, setNation] = useState<string>(homeTeam ?? "");
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -55,14 +62,19 @@ export default function ReactionForm({ matchId, homeTeam, awayTeam, onReactionSu
         body: JSON.stringify({ matchId, nation, reaction_text: trimmed }),
       });
 
-      const json = await resp.json();
+      const json: unknown = await resp.json();
       if (!resp.ok) {
-        throw new Error(json?.error || "Submission failed");
+        let errMsg = "Submission failed";
+        if (typeof json === 'object' && json !== null && 'error' in json) {
+          const v = (json as { error?: unknown }).error;
+          if (typeof v === 'string') errMsg = v;
+        }
+        throw new Error(errMsg);
       }
 
       setSuccess(true);
       setText("");
-      onReactionSubmitted?.(json);
+      onReactionSubmitted?.(json as ReactionRow);
 
       // Reset success after 3 seconds
       timeoutRef.current = window.setTimeout(() => setSuccess(false), 3000);

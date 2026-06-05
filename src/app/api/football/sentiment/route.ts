@@ -30,21 +30,21 @@ const ALLOWED_MOODS = [
   'Neutral',
 ] as const;
 
-function isValidSentiment(obj: any): obj is SentimentResult {
+function isValidSentiment(obj: unknown): obj is SentimentResult {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
   return (
-    obj &&
-    typeof obj === 'object' &&
-    typeof obj.nation === 'string' &&
-    typeof obj.sentiment_score === 'number' &&
-    Number.isFinite(obj.sentiment_score) &&
-    typeof obj.mood_label === 'string' &&
-    ALLOWED_MOODS.includes(obj.mood_label) &&
-    typeof obj.top_emotion === 'string' &&
-    typeof obj.key_talking_point === 'string'
+    typeof o.nation === 'string' &&
+    typeof o.sentiment_score === 'number' &&
+    Number.isFinite(o.sentiment_score) &&
+    typeof o.mood_label === 'string' &&
+    (ALLOWED_MOODS as readonly string[]).includes(o.mood_label as string) &&
+    typeof o.top_emotion === 'string' &&
+    typeof o.key_talking_point === 'string'
   );
 }
 
-function safeParseJsonArray(input: string): any[] {
+function safeParseJsonArray(input: string): unknown[] {
   const cleaned = input.replace(/```json|```/g, '').trim();
 
   // Try to locate the first '[' and the last ']' to extract the JSON array
@@ -52,7 +52,7 @@ function safeParseJsonArray(input: string): any[] {
   const last = cleaned.lastIndexOf(']');
   const candidate = first !== -1 && last !== -1 ? cleaned.slice(first, last + 1) : cleaned;
 
-  return JSON.parse(candidate);
+  return JSON.parse(candidate) as unknown[];
 }
 
 export async function POST(request: NextRequest) {
@@ -106,13 +106,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!groqResponse.ok) {
-      let errorBody: any = { message: 'Groq API error' };
+      let errorBody: unknown = { message: 'Groq API error' };
       try {
         errorBody = await groqResponse.json();
-      } catch (e) {
+      } catch {
         // ignore
       }
-      return NextResponse.json({ error: errorBody.error?.message || errorBody.message || 'Groq API error' }, { status: 502 });
+      let msg: string | undefined;
+      if (typeof errorBody === 'object' && errorBody !== null) {
+        const eb = errorBody as Record<string, unknown>;
+        const nested = eb.error;
+        if (nested && typeof nested === 'object' && nested !== null) {
+          const m = (nested as Record<string, unknown>).message;
+          if (typeof m === 'string') msg = m;
+        }
+        if (!msg && typeof eb.message === 'string') msg = eb.message;
+      }
+      return NextResponse.json({ error: msg || 'Groq API error' }, { status: 502 });
     }
 
     const groqData = await groqResponse.json();
@@ -120,10 +130,10 @@ export async function POST(request: NextRequest) {
     // Support both chat completions and variations in the API response shape
     const rawContent = groqData?.choices?.[0]?.message?.content ?? groqData?.choices?.[0]?.text ?? JSON.stringify(groqData);
 
-    let parsed: any;
+    let parsed: unknown;
     try {
       parsed = safeParseJsonArray(String(rawContent));
-    } catch (e) {
+    } catch {
       console.error('Failed to parse model output:', rawContent);
       return NextResponse.json({ error: 'Failed to parse model output' }, { status: 502 });
     }
@@ -133,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     const sentimentArray: SentimentResult[] = [];
-    for (const item of parsed) {
+    for (const item of parsed as unknown[]) {
       if (!isValidSentiment(item)) {
         console.warn('Invalid sentiment item, skipping', item);
         continue;

@@ -92,14 +92,21 @@ export default function DashboardPage() {
       const params = new URLSearchParams({ match_id: String(match.id) });
       const eventsResp = await fetch(`/api/football/match-events?${params.toString()}`);
       if (!eventsResp.ok) throw new Error(await parseApiError(eventsResp));
-      const eventsData = await eventsResp.json();
+      const eventsData: unknown = await eventsResp.json();
+
+      let status: string | undefined;
+      let goals: unknown;
+      if (typeof eventsData === 'object' && eventsData !== null) {
+        status = (eventsData as { status?: unknown }).status as string | undefined;
+        goals = (eventsData as { goals?: unknown }).goals;
+      }
 
       const payload = {
         matchId: String(match.id),
         homeTeam: match.homeTeam,
         awayTeam: match.awayTeam,
-        status: eventsData.status,
-        goals: eventsData.goals ?? [],
+        status: status ?? '',
+        goals: Array.isArray(goals) ? goals : [],
         userReactions: [],
       };
 
@@ -109,10 +116,21 @@ export default function DashboardPage() {
         body: JSON.stringify(payload),
       });
 
-      const result = await analyzeResp.json();
-      if (!analyzeResp.ok) throw new Error(result?.error || "Analysis failed");
+      const result: unknown = await analyzeResp.json();
+      if (!analyzeResp.ok) {
+        let errMsg = "Analysis failed";
+        if (typeof result === 'object' && result !== null) {
+          const v = (result as { error?: unknown }).error;
+          if (typeof v === 'string') errMsg = v;
+        }
+        throw new Error(errMsg);
+      }
 
-      setSentiments((p) => ({ ...p, [String(match.id)]: result }));
+      if (!Array.isArray(result)) {
+        throw new Error("Invalid analysis response");
+      }
+
+      setSentiments((p) => ({ ...p, [String(match.id)]: result as SentimentResult[] }));
     } catch (err) {
       setAnalyseErrors((p) => ({ ...p, [String(match.id)]: err instanceof Error ? err.message : String(err) }));
     } finally {
@@ -205,7 +223,6 @@ export default function DashboardPage() {
                     <ReactionForm
                       matchId={String(m.id)}
                       homeTeam={m.homeTeam}
-                      awayTeam={m.awayTeam}
                       onReactionSubmitted={() => handleAnalyse(m)}
                     />
                   </div>
@@ -298,7 +315,6 @@ export default function DashboardPage() {
                       <ReactionForm
                         matchId={String(m.id)}
                         homeTeam={m.homeTeam}
-                        awayTeam={m.awayTeam}
                         onReactionSubmitted={() => handleAnalyse(m)}
                       />
                     </div>

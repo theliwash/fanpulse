@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FootballMatchSummary } from "@/lib/football-types";
-import ReactionForm from '@/components/ReactionForm';
 
 type SentimentResult = {
   nation: string;
@@ -96,6 +95,23 @@ export default function DashboardPage() {
   const [analyseErrors, setAnalyseErrors] = useState<Record<string, string>>({});
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+
+  const EMOJI_REACTIONS = [
+    { key: 'fire', emoji: '🔥', label: 'Fire' },
+    { key: 'shocked', emoji: '😱', label: 'Shocked' },
+    { key: 'gutted', emoji: '😭', label: 'Gutted' },
+    { key: 'angry', emoji: '😤', label: 'Angry' },
+    { key: 'party', emoji: '🎉', label: 'Party' },
+  ];
+
+  const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
+
+  const incrementReaction = useCallback((matchId: string, key: string) => {
+    setReactions((prev) => {
+      const cur = prev[matchId] ?? {};
+      return { ...prev, [matchId]: { ...cur, [key]: (cur[key] ?? 0) + 1 } };
+    });
+  }, []);
 
   const fetchMatches = useCallback(async () => {
     setLoading(true);
@@ -315,9 +331,24 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {expandedMatchId === String(m.id) && (
+                  {liveStatuses.has(m.status) && (
                     <div className="mt-4">
-                      <ReactionForm matchId={String(m.id)} homeTeam={m.homeTeam} onReactionSubmitted={() => handleAnalyse(m)} />
+                      <div className="text-gray-400 text-xs mb-2">Fan reactions</div>
+                      <div className="flex items-center gap-2">
+                        {EMOJI_REACTIONS.map((r) => {
+                          const count = reactions[String(m.id)]?.[r.key] ?? 0;
+                          return (
+                            <button
+                              key={r.key}
+                              onClick={() => incrementReaction(String(m.id), r.key)}
+                              className="bg-gray-800 hover:bg-gray-700 rounded-full px-3 py-2 flex items-center gap-2"
+                            >
+                              <span className="text-lg">{r.emoji}</span>
+                              <span className="text-sm text-gray-300">{count}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </article>
@@ -420,9 +451,24 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    { !isPreMatch && expandedMatchId === String(m.id) && (
+                    { !isPreMatch && expandedMatchId === String(m.id) && isLive && (
                       <div className="mt-4">
-                        <ReactionForm matchId={String(m.id)} homeTeam={m.homeTeam} onReactionSubmitted={() => handleAnalyse(m)} />
+                        <div className="text-gray-400 text-xs mb-2">Fan reactions</div>
+                        <div className="flex items-center gap-2">
+                          {EMOJI_REACTIONS.map((r) => {
+                            const count = reactions[String(m.id)]?.[r.key] ?? 0;
+                            return (
+                              <button
+                                key={r.key}
+                                onClick={() => incrementReaction(String(m.id), r.key)}
+                                className="bg-gray-800 hover:bg-gray-700 rounded-full px-3 py-2 flex items-center gap-2"
+                              >
+                                <span className="text-lg">{r.emoji}</span>
+                                <span className="text-sm text-gray-300">{count}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </article>

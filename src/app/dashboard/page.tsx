@@ -27,7 +27,7 @@ const TEAM_FLAGS: Record<string, string> = {
   "Czechia": "🇨🇿",
   "Congo DR": "🇨🇩",
   "Ecuador": "🇪🇨",
-  "England": "🏴",
+  "England": "ENG 🏴",
   "Egypt": "🇪🇬",
   "France": "🇫🇷",
   "Germany": "🇩🇪",
@@ -48,7 +48,7 @@ const TEAM_FLAGS: Record<string, string> = {
   "Portugal": "🇵🇹",
   "Qatar": "🇶🇦",
   "Saudi Arabia": "🇸🇦",
-  "Scotland": "🏴",
+  "Scotland": "SCO 🏴",
   "Senegal": "🇸🇳",
   "South Africa": "🇿🇦",
   "South Korea": "🇰🇷",
@@ -60,6 +60,12 @@ const TEAM_FLAGS: Record<string, string> = {
   "Uruguay": "🇺🇾",
   "United States": "🇺🇸",
   "Uzbekistan": "🇺🇿",
+  // alternate name mappings (football-data.org variants)
+  "Korea Republic": "🇰🇷",
+  "IR Iran": "🇮🇷",
+  "USA": "🇺🇸",
+  "Türkiye": "🇹🇷",
+  "Bosnia and Herzegovina": "🇧🇦",
 };
 
 async function parseApiError(response: Response): Promise<string> {

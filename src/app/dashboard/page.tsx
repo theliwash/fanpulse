@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from 'next/link';
 import type { FootballMatchSummary } from "@/lib/football-types";
 
 type SentimentResult = {
@@ -318,7 +319,13 @@ export default function DashboardPage() {
                         return (
                           <div key={r.nation} className={cardClass}>
                             <div className="flex items-center justify-between">
-                              <div className="text-sm font-medium text-gray-300">{TEAM_FLAGS[r.nation] ?? ''} {r.nation}</div>
+                              <div className="text-sm font-medium text-gray-300">
+                                <Link href={`/nations/${encodeURIComponent(r.nation)}`} className="flex items-center gap-2 hover:underline">
+                                  <span>{TEAM_FLAGS[r.nation] ?? '🏴'}</span>
+                                  <span>{r.nation}</span>
+                                  <span className="text-gray-400 text-xs">→</span>
+                                </Link>
+                              </div>
                               <div className="text-lg font-bold text-white">{r.mood_label}</div>
                             </div>
 

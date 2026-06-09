@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from 'next/link';
 import type { FootballMatchSummary } from "@/lib/football-types";
+import { TEAM_FLAGS } from "@/lib/flags";
 
 type SentimentResult = {
   nation: string;
@@ -10,63 +11,6 @@ type SentimentResult = {
   mood_label: string;
   top_emotion: string;
   key_talking_point: string;
-};
-
-const TEAM_FLAGS: Record<string, string> = {
-  "Argentina": "🇦🇷",
-  "Algeria": "🇩🇿",
-  "Australia": "🇦🇺",
-  "Austria": "🇦🇹",
-  "Belgium": "🇧🇪",
-  "Bosnia-Herzegovina": "🇧🇦",
-  "Brazil": "🇧🇷",
-  "Canada": "🇨🇦",
-  "Cape Verde Islands": "🇨🇻",
-  "Colombia": "🇨🇴",
-  "Croatia": "🇭🇷",
-  "Curaçao": "🇨🇼",
-  "Czechia": "🇨🇿",
-  "Congo DR": "🇨🇩",
-  "Ecuador": "🇪🇨",
-  "England": "ENG 🏴",
-  "Egypt": "🇪🇬",
-  "France": "🇫🇷",
-  "Germany": "🇩🇪",
-  "Ghana": "🇬🇭",
-  "Haiti": "🇭🇹",
-  "Iran": "🇮🇷",
-  "Iraq": "🇮🇶",
-  "Ivory Coast": "🇨🇮",
-  "Japan": "🇯🇵",
-  "Jordan": "🇯🇴",
-  "Mexico": "🇲🇽",
-  "Morocco": "🇲🇦",
-  "Netherlands": "🇳🇱",
-  "New Zealand": "🇳🇿",
-  "Norway": "🇳🇴",
-  "Panama": "🇵🇦",
-  "Paraguay": "🇵🇾",
-  "Portugal": "🇵🇹",
-  "Qatar": "🇶🇦",
-  "Saudi Arabia": "🇸🇦",
-  "Scotland": "SCO 🏴",
-  "Senegal": "🇸🇳",
-  "South Africa": "🇿🇦",
-  "South Korea": "🇰🇷",
-  "Spain": "🇪🇸",
-  "Sweden": "🇸🇪",
-  "Switzerland": "🇨🇭",
-  "Tunisia": "🇹🇳",
-  "Turkey": "🇹🇷",
-  "Uruguay": "🇺🇾",
-  "United States": "🇺🇸",
-  "Uzbekistan": "🇺🇿",
-  // alternate name mappings (football-data.org variants)
-  "Korea Republic": "🇰🇷",
-  "IR Iran": "🇮🇷",
-  "USA": "🇺🇸",
-  "Türkiye": "🇹🇷",
-  "Bosnia and Herzegovina": "🇧🇦",
 };
 
 async function parseApiError(response: Response): Promise<string> {

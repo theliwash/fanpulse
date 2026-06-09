@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, BarChart, Bar } from 'recharts';
+import { TEAM_FLAGS } from '@/lib/flags';
 
 type Snapshot = {
   id: number | string;
@@ -312,7 +313,7 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
 
                         return (
                           <div key={pred.nation} className="bg-gray-800 rounded p-3 border border-gray-700">
-                            <div className="text-white font-semibold mb-2">{pred.nation}</div>
+                            <div className="text-white font-semibold mb-2">{TEAM_FLAGS[pred.nation] ?? ''} {pred.nation}</div>
                             <div className="grid grid-cols-3 gap-2 text-sm">
                               <div>
                                 <div className="text-gray-400">AI Predicted</div>

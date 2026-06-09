@@ -1,17 +1,6 @@
 import NationSentimentClient from '@/components/NationSentimentClient';
 import Link from 'next/link';
-
-const TEAM_FLAGS: Record<string, string> = {
-  "Argentina": "🇦🇷",
-  "Brazil": "🇧🇷",
-  "England": "ENG 🏴",
-  "Scotland": "SCO 🏴",
-  "Korea Republic": "🇰🇷",
-  "IR Iran": "🇮🇷",
-  "USA": "🇺🇸",
-  "Türkiye": "🇹🇷",
-  "Bosnia and Herzegovina": "🇧🇦",
-};
+import { TEAM_FLAGS } from '@/lib/flags';
 
 export default function Page({ params }: { params: { nation: string } }) {
   const nation = decodeURIComponent(params.nation || '');

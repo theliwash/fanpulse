@@ -179,7 +179,7 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
           <div>
-            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">FanPulse ⚽</h1>
+            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">FanPulse<span className="text-emerald-400" style={{ WebkitTextFillColor: '#34d399' }}> ✦</span></h1>
             <p className="text-gray-400 mt-2">Real-time World Cup 2026 fan sentiment</p>
             <div className="mt-2 text-emerald-400">Tournament starts in {daysUntil} day{daysUntil !== 1 ? 's' : ''}</div>
           </div>

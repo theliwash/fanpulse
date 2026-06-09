@@ -19,6 +19,19 @@ type MatchSummary = {
   homeTeam: string;
   awayTeam: string;
   utcDate: string;
+  status: string;
+};
+
+type Prediction = {
+  nation: string;
+  predicted_mood: string;
+  predicted_score: number;
+  reasoning: string;
+};
+
+type ComparisonData = {
+  predictions: Prediction[];
+  actuals: Snapshot[];
 };
 
 export default function NationSentimentClient({ nation }: { nation: string }) {
@@ -29,6 +42,8 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
+  const [generatingPrediction, setGeneratingPrediction] = useState(false);
   const positiveColor = '#10b981';
   const negativeColor = '#ef4444';
 
@@ -105,6 +120,59 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
       mounted = false;
     };
   }, [selectedMatchId, nation]);
+
+  useEffect(() => {
+    if (!selectedMatchId) return;
+    let mounted = true;
+    async function loadComparison() {
+      try {
+        const mid = String(selectedMatchId);
+        const resp = await fetch(`/api/predictions/compare?match_id=${encodeURIComponent(mid)}`);
+        if (!mounted) return;
+        const data = await resp.json();
+        setComparisonData(data);
+      } catch (err) {
+        console.error('Failed to load comparison data', err);
+        setComparisonData(null);
+      }
+    }
+    loadComparison();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedMatchId]);
+
+  const handleGeneratePrediction = async () => {
+    if (!selectedMatchId) return;
+    const match = matches.find((m) => String(m.id) === String(selectedMatchId));
+    if (!match) return;
+
+    setGeneratingPrediction(true);
+    try {
+      const response = await fetch('/api/predictions/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchId: String(selectedMatchId),
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+        }),
+      });
+
+      if (response.ok) {
+        // Reload comparison data
+        const comparisonResp = await fetch(
+          `/api/predictions/compare?match_id=${encodeURIComponent(String(selectedMatchId))}`
+        );
+        const data = await comparisonResp.json();
+        setComparisonData(data);
+      }
+    } catch (err) {
+      console.error('Failed to generate prediction', err);
+    } finally {
+      setGeneratingPrediction(false);
+    }
+  };
 
   const journeyData = useMemo(() => {
     const byMatch = new Map<string, Snapshot[]>();
@@ -209,6 +277,67 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
                   <div className="text-gray-400 text-sm">Most recent</div>
                   <div className="text-white font-semibold">{timeline[timeline.length - 1].top_emotion}</div>
                   <div className="text-gray-300">{timeline[timeline.length - 1].key_talking_point}</div>
+                </div>
+
+                {/* AI vs Reality Panel */}
+                <div className="mt-6 bg-gray-900 border border-gray-800 rounded p-4">
+                  <h3 className="text-lg font-semibold text-white mb-4">AI vs Reality</h3>
+                  {!comparisonData?.predictions || comparisonData.predictions.length === 0 ? (
+                    <div>
+                      <div className="text-gray-400 text-sm mb-3">No prediction yet for this match</div>
+                      <button
+                        onClick={handleGeneratePrediction}
+                        disabled={generatingPrediction}
+                        className="bg-blue-600 hover:bg-blue-500 text-white rounded px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {generatingPrediction ? 'Generating…' : 'Generate Pre-match Prediction'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {comparisonData.predictions.map((pred) => {
+                        const actual = comparisonData.actuals?.find((a) => a.nation === pred.nation);
+                        const isCorrect = actual && actual.mood_label === pred.predicted_mood;
+                        const hasActualData = !!actual;
+
+                        return (
+                          <div key={pred.nation} className="bg-gray-800 rounded p-3 border border-gray-700">
+                            <div className="text-white font-semibold mb-2">{pred.nation}</div>
+                            <div className="grid grid-cols-3 gap-2 text-sm">
+                              <div>
+                                <div className="text-gray-400">AI Predicted</div>
+                                <div className="text-white">{pred.predicted_mood}</div>
+                                <div className="text-xs text-gray-500">{pred.predicted_score}</div>
+                                <div className="text-xs text-gray-400 mt-1">{pred.reasoning}</div>
+                              </div>
+
+                              <div className="flex flex-col justify-center items-center">
+                                {hasActualData ? (
+                                  <div className={`text-xs font-semibold px-2 py-1 rounded ${isCorrect ? 'bg-emerald-900 text-emerald-300' : 'bg-red-900 text-red-300'}`}>
+                                    {isCorrect ? '✓ Correct' : '✗ Wrong'}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-500">—</div>
+                                )}
+                              </div>
+
+                              <div>
+                                <div className="text-gray-400">Actual</div>
+                                {hasActualData ? (
+                                  <>
+                                    <div className="text-white">{actual!.mood_label}</div>
+                                    <div className="text-xs text-gray-500">{actual!.sentiment_score}</div>
+                                  </>
+                                ) : (
+                                  <div className="text-xs text-gray-500">Available after kickoff</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

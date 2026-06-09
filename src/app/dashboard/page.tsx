@@ -266,7 +266,9 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
                         <div>
-                          <div className="text-lg font-bold text-white">{m.homeTeam}</div>
+                          <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                            {m.homeTeam}
+                          </Link>
                         </div>
                       </div>
                     </div>
@@ -299,7 +301,9 @@ export default function DashboardPage() {
                     <div className="text-right">
                       <div className="flex items-center gap-2 justify-end">
                         <div>
-                          <div className="text-lg font-bold text-white">{m.awayTeam}</div>
+                          <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                            {m.awayTeam}
+                          </Link>
                         </div>
                         <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
                       </div>
@@ -388,7 +392,9 @@ export default function DashboardPage() {
                         <div className="text-left">
                           <div className="flex items-center gap-2">
                             <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
-                            <div className="text-lg font-bold text-white">{m.homeTeam}</div>
+                            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                              {m.homeTeam}
+                            </Link>
                           </div>
                         </div>
 
@@ -401,7 +407,9 @@ export default function DashboardPage() {
 
                         <div className="text-right">
                           <div className="flex items-center gap-2 justify-end">
-                            <div className="text-lg font-bold text-white">{m.awayTeam}</div>
+                            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                              {m.awayTeam}
+                            </Link>
                             <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
                           </div>
                         </div>
@@ -417,7 +425,9 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
                           <div>
-                            <div className="text-lg font-bold text-white">{m.homeTeam}</div>
+                            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                              {m.homeTeam}
+                            </Link>
                           </div>
                         </div>
                       </div>
@@ -457,7 +467,9 @@ export default function DashboardPage() {
                       <div className="text-right">
                         <div className="flex items-center gap-2 justify-end">
                           <div>
-                            <div className="text-lg font-bold text-white">{m.awayTeam}</div>
+                            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                              {m.awayTeam}
+                            </Link>
                           </div>
                           <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
                         </div>

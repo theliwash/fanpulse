@@ -175,12 +175,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white p-6">
-      <div className="max-w-6xl mx-auto">
+    <main className="min-h-screen bg-gray-950 text-white px-4 md:px-8 py-8">
+      <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
           <div>
-            <h1 className="text-4xl font-bold text-white">FanPulse ⚽</h1>
-            <p className="text-gray-400">Real-time World Cup 2026 fan sentiment</p>
+            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">FanPulse ⚽</h1>
+            <p className="text-gray-400 mt-2">Real-time World Cup 2026 fan sentiment</p>
             <div className="mt-2 text-emerald-400">Tournament starts in {daysUntil} day{daysUntil !== 1 ? 's' : ''}</div>
           </div>
 
@@ -192,25 +192,27 @@ export default function DashboardPage() {
           </div>
         </header>
 
+        <div className="h-px my-8 bg-gradient-to-r from-transparent via-emerald-500 to-transparent" />
+
         <section>
-          <h2 className="text-2xl font-bold text-white mb-4 mt-8">Matches</h2>
+          <h2 className="text-2xl font-bold text-white mb-4 mt-8 border-l-4 border-emerald-500 pl-3">Live Now</h2>
 
           {error && <div className="text-red-400 text-sm mb-4">{error}</div>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-gray-800 animate-pulse rounded-xl h-32" />
+                <div key={i} className="bg-gray-800 animate-pulse rounded-2xl h-32" />
               ))
             ) : (
               liveMatches.map((m) => (
-                <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
+                <article key={m.id} className="bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-5 hover:border-gray-500 hover:shadow-lg hover:shadow-black/20 transition-all duration-200">
                   <div className="grid grid-cols-3 items-center gap-4">
                     <div className="text-left">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
                         <div>
-                          <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                          <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-xl font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
                             {m.homeTeam}
                           </Link>
                         </div>
@@ -218,7 +220,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="text-center">
-                      <div className="text-sm text-gray-400">{formatKickoff(m.utcDate)}</div>
+                      <div className="text-base text-gray-300">{formatKickoff(m.utcDate)}</div>
                       <div className="flex justify-center mt-2">
                         <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-3 py-1 text-xs font-semibold animate-pulse">LIVE</span>
                       </div>
@@ -245,7 +247,7 @@ export default function DashboardPage() {
                     <div className="text-right">
                       <div className="flex items-center gap-2 justify-end">
                         <div>
-                          <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                          <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-xl font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
                             {m.awayTeam}
                           </Link>
                         </div>
@@ -317,12 +319,12 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-4 mt-8">Upcoming</h2>
+          <h2 className="text-2xl font-bold text-white mb-4 mt-12 border-l-4 border-amber-500 pl-3">Upcoming</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-gray-800 animate-pulse rounded-xl h-32" />
+                <div key={i} className="bg-gray-800 animate-pulse rounded-2xl h-32" />
               ))
             ) : (
               displayedUpcomingMatches.map((m) => {
@@ -331,27 +333,27 @@ export default function DashboardPage() {
 
                 if (isPreMatch) {
                   return (
-                    <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
+                    <article key={m.id} className="bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-5 hover:border-gray-500 hover:shadow-lg hover:shadow-black/20 transition-all duration-200">
                       <div className="grid grid-cols-3 items-center gap-4">
                         <div className="text-left">
                           <div className="flex items-center gap-2">
                             <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
-                            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-xl font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
                               {m.homeTeam}
                             </Link>
                           </div>
                         </div>
 
                         <div className="text-center">
-                          <div className="text-sm text-gray-400">{formatKickoff(m.utcDate)}</div>
+                          <div className="text-base text-gray-300">{formatKickoff(m.utcDate)}</div>
                           <div className="flex justify-center mt-2">
-                            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-3 py-1 text-xs font-semibold">Pre-match</span>
+                            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-4 py-1.5 text-xs font-semibold">Pre-match</span>
                           </div>
                         </div>
 
                         <div className="text-right">
                           <div className="flex items-center gap-2 justify-end">
-                            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-xl font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
                               {m.awayTeam}
                             </Link>
                             <span className="text-2xl">{TEAM_FLAGS[m.awayTeam] ?? ''}</span>
@@ -363,13 +365,13 @@ export default function DashboardPage() {
                 }
 
                 return (
-                  <article key={m.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 transition-colors">
+                  <article key={m.id} className="bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-5 hover:border-gray-500 hover:shadow-lg hover:shadow-black/20 transition-all duration-200">
                     <div className="grid grid-cols-3 items-center gap-4">
                       <div className="text-left">
                         <div className="flex items-center gap-2">
                           <span className="text-2xl">{TEAM_FLAGS[m.homeTeam] ?? ''}</span>
                           <div>
-                            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-xl font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
                               {m.homeTeam}
                             </Link>
                           </div>
@@ -377,7 +379,7 @@ export default function DashboardPage() {
                       </div>
 
                       <div className="text-center">
-                        <div className="text-sm text-gray-400">{formatKickoff(m.utcDate)}</div>
+                        <div className="text-base text-gray-300">{formatKickoff(m.utcDate)}</div>
                         <div className="flex justify-center mt-2">
                           {isLive ? (
                             <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full px-3 py-1 text-xs font-semibold animate-pulse">LIVE</span>
@@ -411,7 +413,7 @@ export default function DashboardPage() {
                       <div className="text-right">
                         <div className="flex items-center gap-2 justify-end">
                           <div>
-                            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-lg font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
+                            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-xl font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer">
                               {m.awayTeam}
                             </Link>
                           </div>
@@ -448,8 +450,12 @@ export default function DashboardPage() {
 
           {upcomingMatches.length > 8 && (
             <div>
-              <button onClick={() => setShowAllUpcoming((s) => !s)} className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl py-3 text-sm font-medium transition-colors border border-gray-700 mt-4">
-                {showAllUpcoming ? 'Show less ↑' : `Show all ${upcomingMatches.length} upcoming matches ↓`}
+              <button onClick={() => setShowAllUpcoming((s) => !s)} className="group w-full bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl py-3 text-sm font-medium transition-colors border border-gray-700 mt-4">
+                {showAllUpcoming ? (
+                  <>Show less <span className="inline-block transition-transform group-hover:-translate-y-0.5">↑</span></>
+                ) : (
+                  <>Show all {upcomingMatches.length} upcoming matches <span className="inline-block transition-transform group-hover:translate-y-0.5">↓</span></>
+                )}
               </button>
             </div>
           )}

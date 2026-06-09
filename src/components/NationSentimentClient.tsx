@@ -211,17 +211,17 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
   }, [journeyData]);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-6">
+    <div>
       <div className="max-w-4xl mx-auto">
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-6">
           <button
-            className={`px-3 py-1 rounded ${view === 'timeline' ? 'bg-gray-800' : 'bg-gray-900 border border-gray-800'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === 'timeline' ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-300'}`}
             onClick={() => setView('timeline')}
           >
             Match Timeline
           </button>
           <button
-            className={`px-3 py-1 rounded ${view === 'journey' ? 'bg-gray-800' : 'bg-gray-900 border border-gray-800'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${view === 'journey' ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-300'}`}
             onClick={() => setView('journey')}
           >
             Tournament Journey
@@ -253,6 +253,7 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
               <div className="text-gray-400">No sentiment data for this match yet</div>
             ) : (
               <div>
+                <div className="border border-gray-800 rounded-2xl p-4">
                 <div style={{ width: '100%', height: 320 }}>
                   <ResponsiveContainer>
                     <LineChart data={timeline.map((t) => ({ ...t, created_at: t.created_at }))}>
@@ -283,15 +284,16 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+                </div>
 
-                <div className="mt-4 bg-gray-900 border border-gray-800 rounded p-4">
+                <div className="mt-4 bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-4">
                   <div className="text-gray-400 text-sm">Most recent</div>
                   <div className="text-white font-semibold">{timeline[timeline.length - 1].top_emotion}</div>
                   <div className="text-gray-300">{timeline[timeline.length - 1].key_talking_point}</div>
                 </div>
 
                 {/* AI vs Reality Panel */}
-                <div className="mt-6 bg-gray-900 border border-gray-800 rounded p-4">
+                <div className="mt-6 bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-4">
                   <h3 className="text-lg font-semibold text-white mb-4">AI vs Reality</h3>
                   {!comparisonData?.predictions || comparisonData.predictions.length === 0 ? (
                     <div>

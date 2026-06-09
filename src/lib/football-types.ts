@@ -16,4 +16,7 @@ export type MatchGoalEvent = {
 export type MatchEventsResponse = {
   status: string;
   goals: MatchGoalEvent[];
+  homeTeam: string;
+  awayTeam: string;
+  utcDate: string;
 };

@@ -42,53 +42,59 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMatches, setLoadingMatches] = useState(true);
   const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
   const [generatingPrediction, setGeneratingPrediction] = useState(false);
   const positiveColor = '#10b981';
   const negativeColor = '#ef4444';
 
   useEffect(() => {
-    // Fetch all nation snapshots and matches
     async function load() {
       setLoading(true);
+      setLoadingMatches(true);
       try {
-        const [snapRes, matchesRes] = await Promise.all([
-          fetch(`/api/sentiment/nation?nation=${encodeURIComponent(nation)}`),
-          fetch('/api/football/matches'),
-        ]);
-
+        const snapRes = await fetch(`/api/sentiment/nation?nation=${encodeURIComponent(nation)}`);
         const snaps = (await snapRes.json()) as Snapshot[];
-        const matchesJson = (await matchesRes.json()) as MatchSummary[];
 
         setAllSnapshots(Array.isArray(snaps) ? snaps : []);
-        setMatches(Array.isArray(matchesJson) ? matchesJson : []);
 
-        // Build match options
-        const byMatch = new Map<string, Snapshot[]>();
-        for (const s of snaps ?? []) {
-          byMatch.set(String(s.match_id), (byMatch.get(String(s.match_id)) ?? []).concat(s));
-        }
+        const uniqueMatchIds = Array.from(new Set(snaps?.map((s) => String(s.match_id)) ?? []));
+
+        const matchDetailsArray = await Promise.all(
+          uniqueMatchIds.map((matchId) =>
+            fetch(`/api/football/match-events?match_id=${encodeURIComponent(matchId)}`)
+              .then((res) => res.json())
+              .then((data) => ({ matchId, ...data }))
+              .catch(() => ({ matchId }))
+          )
+        );
 
         const options: { matchId: string; label: string; date?: string }[] = [];
-        byMatch.forEach((arr, matchId) => {
-          const m = matchesJson?.find((mm) => String(mm.id) === String(matchId));
-          const opponent = m
-            ? (m.homeTeam === nation ? m.awayTeam : m.homeTeam)
-            : 'Opponent';
-          const date = m?.utcDate;
-          options.push({ matchId: String(matchId), label: `${opponent} ${date ? '— ' + new Date(date).toLocaleDateString() : ''}`, date });
+        const matchSummaries: MatchSummary[] = [];
+
+        matchDetailsArray.forEach((details) => {
+          const homeTeam: string = details.homeTeam ?? '';
+          const awayTeam: string = details.awayTeam ?? '';
+          const utcDate: string | undefined = details.utcDate;
+          const status: string = details.status ?? '';
+          if (homeTeam && awayTeam) {
+            options.push({ matchId: details.matchId, label: `${homeTeam} vs ${awayTeam}`, date: utcDate });
+            matchSummaries.push({ id: details.matchId, homeTeam, awayTeam, utcDate: utcDate ?? '', status });
+          }
         });
 
-        // sort options by date when available
         options.sort((a, b) => {
           if (a.date && b.date) return new Date(a.date).getTime() - new Date(b.date).getTime();
           return a.matchId.localeCompare(b.matchId);
         });
 
         setMatchOptions(options);
+        setMatches(matchSummaries);
+        setLoadingMatches(false);
         if (options.length > 0) setSelectedMatchId(options[0].matchId);
       } catch (err) {
         console.error('Failed to load nation data', err);
+        setLoadingMatches(false);
       } finally {
         setLoading(false);
       }
@@ -225,15 +231,19 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
           <div>
             <div className="mb-4">
               <label className="text-gray-400 text-sm">Select match</label>
-              <select
-                className="ml-2 bg-gray-900 border border-gray-800 text-white rounded px-2 py-1"
-                value={selectedMatchId ?? ''}
-                onChange={(e) => setSelectedMatchId(e.target.value)}
-              >
-                {matchOptions.map((o) => (
-                  <option key={o.matchId} value={o.matchId}>{o.label}</option>
-                ))}
-              </select>
+              {loadingMatches ? (
+                <span className="ml-2 text-gray-400 text-sm">Loading matches...</span>
+              ) : (
+                <select
+                  className="ml-2 bg-gray-900 border border-gray-800 text-white rounded px-2 py-1"
+                  value={selectedMatchId ?? ''}
+                  onChange={(e) => setSelectedMatchId(e.target.value)}
+                >
+                  {matchOptions.map((o) => (
+                    <option key={o.matchId} value={o.matchId}>{o.label}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {loading ? (

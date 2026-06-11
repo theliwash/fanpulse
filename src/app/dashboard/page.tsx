@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from 'next/link';
 import type { FootballMatchSummary } from "@/lib/football-types";
 import { TEAM_FLAGS } from "@/lib/flags";
@@ -35,6 +35,27 @@ function formatKickoff(utcDate: string) {
   });
 }
 
+function localDateKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function generateDatePills() {
+  const pills = [];
+  const today = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const label =
+      i === 0 ? 'Today' :
+      i === 1 ? 'Tomorrow' :
+      d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    pills.push({ label, key: localDateKey(d) });
+  }
+  return pills;
+}
+
+const DATE_PILLS = generateDatePills();
+
 export default function DashboardPage() {
   const [matches, setMatches] = useState<FootballMatchSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +67,11 @@ export default function DashboardPage() {
   const [analyseErrors, setAnalyseErrors] = useState<Record<string, string>>({});
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [matchTypeFilter, setMatchTypeFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING'>('ALL');
+
+  const dateScrollRef = useRef<HTMLDivElement>(null);
 
   const EMOJI_REACTIONS = [
     { key: 'fire', emoji: '🔥', label: 'Fire' },
@@ -92,12 +118,42 @@ export default function DashboardPage() {
   const liveStatuses = useMemo(() => new Set(["LIVE", "IN_PLAY"]), []);
   const upcomingStatuses = useMemo(() => new Set(["TIMED", "SCHEDULED", "UPCOMING"]), []);
 
-  const liveMatches = matches.filter((m) => liveStatuses.has(m.status));
-  const upcomingMatches = matches
-    .filter((m) => upcomingStatuses.has(m.status) || m.status === "SCHEDULED")
-    .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+  const filteredMatches = useMemo(() => {
+    let result = matches;
+
+    if (selectedDate) {
+      result = result.filter((m) => localDateKey(new Date(m.utcDate)) === selectedDate);
+    }
+
+    if (matchTypeFilter === 'LIVE') {
+      result = result.filter((m) => liveStatuses.has(m.status));
+    } else if (matchTypeFilter === 'UPCOMING') {
+      result = result.filter((m) => upcomingStatuses.has(m.status));
+    }
+
+    return result;
+  }, [matches, selectedDate, matchTypeFilter, liveStatuses, upcomingStatuses]);
+
+  const isDefaultView = matchTypeFilter === 'ALL' && selectedDate === null;
+
+  const liveMatches = useMemo(
+    () => filteredMatches.filter((m) => liveStatuses.has(m.status)),
+    [filteredMatches, liveStatuses]
+  );
+
+  const upcomingMatches = useMemo(
+    () =>
+      filteredMatches
+        .filter((m) => upcomingStatuses.has(m.status))
+        .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()),
+    [filteredMatches, upcomingStatuses]
+  );
 
   const displayedUpcomingMatches = showAllUpcoming ? upcomingMatches : upcomingMatches.slice(0, 8);
+
+  function scrollDates(dir: 'left' | 'right') {
+    dateScrollRef.current?.scrollBy({ left: dir === 'left' ? -160 : 160, behavior: 'smooth' });
+  }
 
   async function handleAnalyse(match: FootballMatchSummary) {
     setAnalyseErrors((p) => ({ ...p, [String(match.id)]: "" }));
@@ -162,15 +218,9 @@ export default function DashboardPage() {
 
   function getMoodStyles(mood: string) {
     const lower = String(mood).toLowerCase();
-    if (lower === 'euphoric' || lower === 'confident') {
-      return { bar: '#16a34a' };
-    }
-    if (lower === 'neutral') {
-      return { bar: '#9ca3af' };
-    }
-    if (lower === 'nervous' || lower === 'frustrated') {
-      return { bar: '#f59e0b' };
-    }
+    if (lower === 'euphoric' || lower === 'confident') return { bar: '#16a34a' };
+    if (lower === 'neutral') return { bar: '#9ca3af' };
+    if (lower === 'nervous' || lower === 'frustrated') return { bar: '#f59e0b' };
     return { bar: '#b91c1c' };
   }
 
@@ -181,6 +231,119 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  function MatchCard({ m }: { m: FootballMatchSummary }) {
+    const isLive = liveStatuses.has(m.status);
+    return (
+      <article className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-800 transition-colors">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FlagCircle team={m.homeTeam} />
+            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
+              {m.homeTeam}
+            </Link>
+          </div>
+          {isLive && <span className="text-sm font-semibold text-white tabular-nums">{m.score?.home ?? '—'}</span>}
+        </div>
+
+        <div className="my-2.5 h-px bg-zinc-800" />
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FlagCircle team={m.awayTeam} />
+            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
+              {m.awayTeam}
+            </Link>
+          </div>
+          {isLive
+            ? <span className="text-sm font-semibold text-white tabular-nums">{m.score?.away ?? '—'}</span>
+            : <span className="text-xs text-zinc-400 shrink-0 ml-4">{formatKickoff(m.utcDate)}</span>
+          }
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          {isLive ? (
+            <div className="flex items-center gap-1.5 text-xs text-red-500">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block" />
+              LIVE
+            </div>
+          ) : (
+            <div />
+          )}
+          {isLive && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleAnalyse(m)}
+                disabled={!!analysingIds[String(m.id)]}
+                className="text-xs text-zinc-400 hover:text-white transition-colors disabled:opacity-40"
+              >
+                {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse'}
+              </button>
+              <button
+                onClick={() => setExpandedMatchId((prev) => prev === String(m.id) ? null : String(m.id))}
+                className="text-xs text-zinc-400 hover:text-white transition-colors"
+              >
+                {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {analyseErrors[String(m.id)] && (
+          <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>
+        )}
+
+        {sentiments[String(m.id)] && (
+          <div className="mt-3 space-y-3 border-t border-zinc-800 pt-3">
+            {sentiments[String(m.id)].map((r) => {
+              const widthPercent = Math.max(0, Math.min(100, (r.sentiment_score + 100) / 2));
+              const styles = getMoodStyles(r.mood_label);
+              return (
+                <div key={r.nation}>
+                  <div className="flex items-center justify-between mb-1">
+                    <Link href={`/nations/${encodeURIComponent(r.nation)}`} className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white transition-colors">
+                      <span>{TEAM_FLAGS[r.nation] ?? '🏴'}</span>
+                      <span>{r.nation}</span>
+                    </Link>
+                    <span className="text-xs font-medium text-white">{r.mood_label}</span>
+                  </div>
+                  <div className="w-full bg-zinc-800 rounded-full h-1">
+                    <div style={{ width: `${widthPercent}%`, height: '100%', borderRadius: 9999, background: styles.bar }} />
+                  </div>
+                  <div className="text-xs text-zinc-500 mt-1">{r.key_talking_point}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isLive && (
+          <div className="mt-3 border-t border-zinc-800 pt-3">
+            <div className="text-xs text-zinc-500 mb-2">Fan reactions</div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {EMOJI_REACTIONS.map((r) => {
+                const count = reactions[String(m.id)]?.[r.key] ?? 0;
+                return (
+                  <button
+                    key={r.key}
+                    onClick={() => incrementReaction(String(m.id), r.key)}
+                    className="bg-zinc-800 hover:bg-zinc-700 rounded-full px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
+                  >
+                    <span className="text-sm">{r.emoji}</span>
+                    <span className="text-xs text-zinc-400">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </article>
+    );
+  }
+
+  const pillBase = "shrink-0 rounded-full px-4 py-1.5 text-sm transition-colors";
+  const pillActive = `${pillBase} bg-white text-black font-semibold`;
+  const pillInactive = `${pillBase} bg-transparent text-zinc-400 border border-zinc-700 hover:border-zinc-500`;
 
   return (
     <main className="min-h-screen bg-black text-white px-4 md:px-8 py-8">
@@ -208,160 +371,97 @@ export default function DashboardPage() {
 
         {error && <div className="text-red-400 text-sm mb-4">{error}</div>}
 
+        {/* Filter bar */}
+        <div className="flex items-center gap-1 mb-6">
+          <button
+            onClick={() => scrollDates('left')}
+            className="hidden md:flex shrink-0 w-7 h-7 items-center justify-center text-zinc-500 hover:text-white transition-colors text-lg leading-none"
+            aria-label="Scroll left"
+          >
+            ‹
+          </button>
+
+          <div ref={dateScrollRef} className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1">
+            {DATE_PILLS.map((pill) => (
+              <button
+                key={pill.key}
+                onClick={() => setSelectedDate(selectedDate === pill.key ? null : pill.key)}
+                className={selectedDate === pill.key ? pillActive : pillInactive}
+              >
+                {pill.label}
+              </button>
+            ))}
+
+            <div className="shrink-0 h-6 w-px bg-zinc-700 mx-2" />
+
+            {(['ALL', 'LIVE', 'UPCOMING'] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setMatchTypeFilter(type)}
+                className={matchTypeFilter === type ? pillActive : pillInactive}
+              >
+                {type}
+              </button>
+            ))}
+
+            <span className="shrink-0 text-xs text-zinc-500 ml-2 whitespace-nowrap">
+              {loading ? '…' : `${filteredMatches.length} match${filteredMatches.length !== 1 ? 'es' : ''}`}
+            </span>
+          </div>
+
+          <button
+            onClick={() => scrollDates('right')}
+            className="hidden md:flex shrink-0 w-7 h-7 items-center justify-center text-zinc-500 hover:text-white transition-colors text-lg leading-none"
+            aria-label="Scroll right"
+          >
+            ›
+          </button>
+        </div>
+
         <section>
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Live Now</h2>
+          {isDefaultView ? (
+            <>
+              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Live Now</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {loading
+                  ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="bg-zinc-900 animate-pulse rounded-xl h-24" />)
+                  : liveMatches.map((m) => <MatchCard key={m.id} m={m} />)
+                }
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {loading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-zinc-900 animate-pulse rounded-xl h-24" />
-              ))
-            ) : (
-              liveMatches.map((m) => (
-                <article key={m.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-800 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FlagCircle team={m.homeTeam} />
-                      <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
-                        {m.homeTeam}
-                      </Link>
-                    </div>
-                    <span className="text-sm font-semibold text-white tabular-nums">{m.score?.home ?? '—'}</span>
-                  </div>
+              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 mt-8">Upcoming</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {loading
+                  ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="bg-zinc-900 animate-pulse rounded-xl h-24" />)
+                  : displayedUpcomingMatches.map((m) => <MatchCard key={m.id} m={m} />)
+                }
+              </div>
 
-                  <div className="my-2.5 h-px bg-zinc-800" />
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FlagCircle team={m.awayTeam} />
-                      <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
-                        {m.awayTeam}
-                      </Link>
-                    </div>
-                    <span className="text-sm font-semibold text-white tabular-nums">{m.score?.away ?? '—'}</span>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-red-500">
-                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block" />
-                      LIVE
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleAnalyse(m)}
-                        disabled={!!analysingIds[String(m.id)]}
-                        className="text-xs text-zinc-400 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse'}
-                      </button>
-                      <button
-                        onClick={() => setExpandedMatchId((prev) => prev === String(m.id) ? null : String(m.id))}
-                        className="text-xs text-zinc-400 hover:text-white transition-colors"
-                      >
-                        {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {analyseErrors[String(m.id)] && (
-                    <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>
+              {upcomingMatches.length > 8 && (
+                <button
+                  onClick={() => setShowAllUpcoming((s) => !s)}
+                  className="group w-full mt-4 py-3 text-xs text-zinc-500 hover:text-white transition-colors rounded-xl border border-zinc-800 hover:border-zinc-600"
+                >
+                  {showAllUpcoming ? (
+                    <>Show less <span className="inline-block transition-transform group-hover:-translate-y-0.5">↑</span></>
+                  ) : (
+                    <>Show all {upcomingMatches.length} upcoming matches <span className="inline-block transition-transform group-hover:translate-y-0.5">↓</span></>
                   )}
-
-                  {sentiments[String(m.id)] && (
-                    <div className="mt-3 space-y-3 border-t border-zinc-800 pt-3">
-                      {sentiments[String(m.id)].map((r) => {
-                        const widthPercent = Math.max(0, Math.min(100, (r.sentiment_score + 100) / 2));
-                        const styles = getMoodStyles(r.mood_label);
-                        return (
-                          <div key={r.nation}>
-                            <div className="flex items-center justify-between mb-1">
-                              <Link href={`/nations/${encodeURIComponent(r.nation)}`} className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white transition-colors">
-                                <span>{TEAM_FLAGS[r.nation] ?? '🏴'}</span>
-                                <span>{r.nation}</span>
-                              </Link>
-                              <span className="text-xs font-medium text-white">{r.mood_label}</span>
-                            </div>
-                            <div className="w-full bg-zinc-800 rounded-full h-1">
-                              <div style={{ width: `${widthPercent}%`, height: '100%', borderRadius: 9999, background: styles.bar }} />
-                            </div>
-                            <div className="text-xs text-zinc-500 mt-1">{r.key_talking_point}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {liveStatuses.has(m.status) && (
-                    <div className="mt-3 border-t border-zinc-800 pt-3">
-                      <div className="text-xs text-zinc-500 mb-2">Fan reactions</div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {EMOJI_REACTIONS.map((r) => {
-                          const count = reactions[String(m.id)]?.[r.key] ?? 0;
-                          return (
-                            <button
-                              key={r.key}
-                              onClick={() => incrementReaction(String(m.id), r.key)}
-                              className="bg-zinc-800 hover:bg-zinc-700 rounded-full px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
-                            >
-                              <span className="text-sm">{r.emoji}</span>
-                              <span className="text-xs text-zinc-400">{count}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </article>
-              ))
-            )}
-          </div>
-
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 mt-8">Upcoming</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {loading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-zinc-900 animate-pulse rounded-xl h-24" />
-              ))
-            ) : (
-              displayedUpcomingMatches.map((m) => (
-                <article key={m.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-800 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FlagCircle team={m.homeTeam} />
-                      <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
-                        {m.homeTeam}
-                      </Link>
-                    </div>
-                  </div>
-
-                  <div className="my-2.5 h-px bg-zinc-800" />
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FlagCircle team={m.awayTeam} />
-                      <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
-                        {m.awayTeam}
-                      </Link>
-                    </div>
-                    <span className="text-xs text-zinc-400 shrink-0 ml-4">{formatKickoff(m.utcDate)}</span>
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-
-          {upcomingMatches.length > 8 && (
-            <button
-              onClick={() => setShowAllUpcoming((s) => !s)}
-              className="group w-full mt-4 py-3 text-xs text-zinc-500 hover:text-white transition-colors rounded-xl border border-zinc-800 hover:border-zinc-600"
-            >
-              {showAllUpcoming ? (
-                <>Show less <span className="inline-block transition-transform group-hover:-translate-y-0.5">↑</span></>
-              ) : (
-                <>Show all {upcomingMatches.length} upcoming matches <span className="inline-block transition-transform group-hover:translate-y-0.5">↓</span></>
+                </button>
               )}
-            </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Matches</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {loading
+                  ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="bg-zinc-900 animate-pulse rounded-xl h-24" />)
+                  : filteredMatches.length === 0
+                    ? <p className="text-sm text-zinc-500 col-span-2 py-8 text-center">No matches found</p>
+                    : filteredMatches.map((m) => <MatchCard key={m.id} m={m} />)
+                }
+              </div>
+            </>
           )}
         </section>
       </div>

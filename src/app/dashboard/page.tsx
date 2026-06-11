@@ -39,22 +39,25 @@ function localDateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function generateDatePills() {
-  const pills = [];
-  const today = new Date();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const label =
-      i === 0 ? 'Today' :
-      i === 1 ? 'Tomorrow' :
-      d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    pills.push({ label, key: localDateKey(d) });
+// All 39 World Cup 2026 dates: Jun 11 – Jul 19
+const TOURNAMENT_DATES = (() => {
+  const dates: string[] = [];
+  const d = new Date(2026, 5, 11);
+  const end = new Date(2026, 6, 19);
+  while (d <= end) {
+    dates.push(localDateKey(new Date(d)));
+    d.setDate(d.getDate() + 1);
   }
-  return pills;
-}
+  return dates;
+})();
 
-const DATE_PILLS = generateDatePills();
+function formatDateLabel(key: string) {
+  const d = new Date(key + 'T00:00:00');
+  return {
+    day: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+    date: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+  };
+}
 
 export default function DashboardPage() {
   const [matches, setMatches] = useState<FootballMatchSummary[]>([]);
@@ -70,8 +73,36 @@ export default function DashboardPage() {
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [matchTypeFilter, setMatchTypeFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING'>('ALL');
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [teamSearch, setTeamSearch] = useState('');
+  const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
 
-  const dateScrollRef = useRef<HTMLDivElement>(null);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+  const teamDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dateDropdownOpen) return;
+    function handler(e: MouseEvent) {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(e.target as Node)) {
+        setDateDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dateDropdownOpen]);
+
+  useEffect(() => {
+    if (!teamDropdownOpen) return;
+    function handler(e: MouseEvent) {
+      if (teamDropdownRef.current && !teamDropdownRef.current.contains(e.target as Node)) {
+        setTeamDropdownOpen(false);
+        setTeamSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [teamDropdownOpen]);
 
   const EMOJI_REACTIONS = [
     { key: 'fire', emoji: '🔥', label: 'Fire' },
@@ -93,7 +124,6 @@ export default function DashboardPage() {
   const fetchMatches = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
       const res = await fetch("/api/football/matches");
       if (!res.ok) throw new Error(await parseApiError(res));
@@ -118,23 +148,44 @@ export default function DashboardPage() {
   const liveStatuses = useMemo(() => new Set(["LIVE", "IN_PLAY"]), []);
   const upcomingStatuses = useMemo(() => new Set(["TIMED", "SCHEDULED", "UPCOMING"]), []);
 
+  const matchCountByDate = useMemo(() => {
+    const counts: Record<string, number> = {};
+    matches.forEach((m) => {
+      const key = localDateKey(new Date(m.utcDate));
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+    return counts;
+  }, [matches]);
+
+  const teamsList = useMemo(() => {
+    const set = new Set<string>();
+    matches.forEach((m) => { set.add(m.homeTeam); set.add(m.awayTeam); });
+    return Array.from(set).sort();
+  }, [matches]);
+
+  const filteredTeamsList = useMemo(() => {
+    if (!teamSearch.trim()) return teamsList;
+    const q = teamSearch.toLowerCase();
+    return teamsList.filter((t) => t.toLowerCase().includes(q));
+  }, [teamsList, teamSearch]);
+
   const filteredMatches = useMemo(() => {
     let result = matches;
-
     if (selectedDate) {
       result = result.filter((m) => localDateKey(new Date(m.utcDate)) === selectedDate);
     }
-
+    if (selectedTeam) {
+      result = result.filter((m) => m.homeTeam === selectedTeam || m.awayTeam === selectedTeam);
+    }
     if (matchTypeFilter === 'LIVE') {
       result = result.filter((m) => liveStatuses.has(m.status));
     } else if (matchTypeFilter === 'UPCOMING') {
       result = result.filter((m) => upcomingStatuses.has(m.status));
     }
-
     return result;
-  }, [matches, selectedDate, matchTypeFilter, liveStatuses, upcomingStatuses]);
+  }, [matches, selectedDate, selectedTeam, matchTypeFilter, liveStatuses, upcomingStatuses]);
 
-  const isDefaultView = matchTypeFilter === 'ALL' && selectedDate === null;
+  const isDefaultView = matchTypeFilter === 'ALL' && selectedDate === null && selectedTeam === null;
 
   const liveMatches = useMemo(
     () => filteredMatches.filter((m) => liveStatuses.has(m.status)),
@@ -151,14 +202,22 @@ export default function DashboardPage() {
 
   const displayedUpcomingMatches = showAllUpcoming ? upcomingMatches : upcomingMatches.slice(0, 8);
 
-  function scrollDates(dir: 'left' | 'right') {
-    dateScrollRef.current?.scrollBy({ left: dir === 'left' ? -160 : 160, behavior: 'smooth' });
-  }
+  const selectedDateLabel = useMemo(() => {
+    if (!selectedDate) return null;
+    const todayKey = localDateKey(new Date());
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowKey = localDateKey(tomorrowDate);
+    const { date } = formatDateLabel(selectedDate);
+    if (selectedDate === todayKey) return `Today, ${date}`;
+    if (selectedDate === tomorrowKey) return `Tomorrow, ${date}`;
+    const { day } = formatDateLabel(selectedDate);
+    return `${day}, ${date}`;
+  }, [selectedDate]);
 
   async function handleAnalyse(match: FootballMatchSummary) {
     setAnalyseErrors((p) => ({ ...p, [String(match.id)]: "" }));
     setAnalysingIds((p) => ({ ...p, [String(match.id)]: true }));
-
     try {
       const params = new URLSearchParams({ match_id: String(match.id) });
       const eventsResp = await fetch(`/api/football/match-events?${params.toString()}`);
@@ -196,11 +255,7 @@ export default function DashboardPage() {
         }
         throw new Error(errMsg);
       }
-
-      if (!Array.isArray(result)) {
-        throw new Error("Invalid analysis response");
-      }
-
+      if (!Array.isArray(result)) throw new Error("Invalid analysis response");
       setSentiments((p) => ({ ...p, [String(match.id)]: result as SentimentResult[] }));
     } catch (err) {
       setAnalyseErrors((p) => ({ ...p, [String(match.id)]: err instanceof Error ? err.message : String(err) }));
@@ -267,9 +322,7 @@ export default function DashboardPage() {
               <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block" />
               LIVE
             </div>
-          ) : (
-            <div />
-          )}
+          ) : <div />}
           {isLive && (
             <div className="flex items-center gap-3">
               <button
@@ -345,6 +398,8 @@ export default function DashboardPage() {
   const pillActive = `${pillBase} bg-white text-black font-semibold`;
   const pillInactive = `${pillBase} bg-transparent text-zinc-400 border border-zinc-700 hover:border-zinc-500`;
 
+  const dropdownBtnBase = "flex items-center gap-2 bg-zinc-900 border border-zinc-700 hover:border-zinc-500 rounded-lg px-3 py-2 text-sm transition-colors whitespace-nowrap";
+
   return (
     <main className="min-h-screen bg-black text-white px-4 md:px-8 py-8">
       <div className="max-w-7xl mx-auto">
@@ -372,50 +427,133 @@ export default function DashboardPage() {
         {error && <div className="text-red-400 text-sm mb-4">{error}</div>}
 
         {/* Filter bar */}
-        <div className="flex items-center gap-1 mb-6">
-          <button
-            onClick={() => scrollDates('left')}
-            className="hidden md:flex shrink-0 w-7 h-7 items-center justify-center text-zinc-500 hover:text-white transition-colors text-lg leading-none"
-            aria-label="Scroll left"
-          >
-            ‹
-          </button>
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
 
-          <div ref={dateScrollRef} className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1">
-            {DATE_PILLS.map((pill) => (
-              <button
-                key={pill.key}
-                onClick={() => setSelectedDate(selectedDate === pill.key ? null : pill.key)}
-                className={selectedDate === pill.key ? pillActive : pillInactive}
-              >
-                {pill.label}
-              </button>
-            ))}
+          {/* Date dropdown */}
+          <div className="relative" ref={dateDropdownRef}>
+            <button
+              onClick={() => { setDateDropdownOpen((o) => !o); setTeamDropdownOpen(false); }}
+              className={`${dropdownBtnBase} ${selectedDate ? 'text-white border-zinc-500' : 'text-zinc-400'}`}
+            >
+              <span>📅</span>
+              <span>{selectedDateLabel ?? 'All dates'}</span>
+              <svg className="w-3 h-3 text-zinc-500 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
-            <div className="shrink-0 h-6 w-px bg-zinc-700 mx-2" />
-
-            {(['ALL', 'LIVE', 'UPCOMING'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setMatchTypeFilter(type)}
-                className={matchTypeFilter === type ? pillActive : pillInactive}
-              >
-                {type}
-              </button>
-            ))}
-
-            <span className="shrink-0 text-xs text-zinc-500 ml-2 whitespace-nowrap">
-              {loading ? '…' : `${filteredMatches.length} match${filteredMatches.length !== 1 ? 'es' : ''}`}
-            </span>
+            {dateDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl p-2 max-h-80 overflow-y-auto z-50 min-w-[220px] scrollbar-hide">
+                <button
+                  onClick={() => { setSelectedDate(null); setDateDropdownOpen(false); }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedDate === null ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                  }`}
+                >
+                  All dates
+                </button>
+                {TOURNAMENT_DATES.map((key) => {
+                  const { day, date } = formatDateLabel(key);
+                  const count = matchCountByDate[key] ?? 0;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => { setSelectedDate(key); setDateDropdownOpen(false); }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                        selectedDate === key ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="text-zinc-500 w-7 text-xs shrink-0">{day}</span>
+                        <span>{date}</span>
+                      </span>
+                      {count > 0 && <span className="text-xs text-zinc-500 ml-3">{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <button
-            onClick={() => scrollDates('right')}
-            className="hidden md:flex shrink-0 w-7 h-7 items-center justify-center text-zinc-500 hover:text-white transition-colors text-lg leading-none"
-            aria-label="Scroll right"
-          >
-            ›
-          </button>
+          {/* Team dropdown */}
+          <div className="relative" ref={teamDropdownRef}>
+            <button
+              onClick={() => { setTeamDropdownOpen((o) => !o); setDateDropdownOpen(false); }}
+              className={`${dropdownBtnBase} ${selectedTeam ? 'text-white border-zinc-500' : 'text-zinc-400'}`}
+            >
+              <svg className="w-3.5 h-3.5 text-zinc-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <span>
+                {selectedTeam
+                  ? <>{TEAM_FLAGS[selectedTeam] ?? '🏴'} {selectedTeam}</>
+                  : 'All teams'
+                }
+              </span>
+              <svg className="w-3 h-3 text-zinc-500 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {teamDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl z-50 min-w-[220px]">
+                <div className="p-2 border-b border-zinc-800">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search teams…"
+                    value={teamSearch}
+                    onChange={(e) => setTeamSearch(e.target.value)}
+                    className="w-full bg-zinc-800 text-white text-sm rounded-lg px-3 py-1.5 outline-none placeholder-zinc-500"
+                  />
+                </div>
+                <div className="p-2 max-h-72 overflow-y-auto scrollbar-hide">
+                  <button
+                    onClick={() => { setSelectedTeam(null); setTeamDropdownOpen(false); setTeamSearch(''); }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                      selectedTeam === null ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                    }`}
+                  >
+                    All teams
+                  </button>
+                  {filteredTeamsList.map((team) => (
+                    <button
+                      key={team}
+                      onClick={() => { setSelectedTeam(team); setTeamDropdownOpen(false); setTeamSearch(''); }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        selectedTeam === team ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                      }`}
+                    >
+                      <span>{TEAM_FLAGS[team] ?? '🏴'}</span>
+                      <span>{team}</span>
+                    </button>
+                  ))}
+                  {filteredTeamsList.length === 0 && (
+                    <p className="text-xs text-zinc-500 px-3 py-2">No teams found</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Separator */}
+          <div className="h-6 w-px bg-zinc-700" />
+
+          {/* Type pills */}
+          {(['ALL', 'LIVE', 'UPCOMING'] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => setMatchTypeFilter(type)}
+              className={matchTypeFilter === type ? pillActive : pillInactive}
+            >
+              {type}
+            </button>
+          ))}
+
+          {/* Match count */}
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
+            {loading ? '…' : `${filteredMatches.length} match${filteredMatches.length !== 1 ? 'es' : ''}`}
+          </span>
         </div>
 
         <section>

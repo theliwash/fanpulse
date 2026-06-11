@@ -61,15 +61,15 @@ function formatDateLabel(key: string) {
 
 function getMatchStage(utcDate: string): string {
   const d = new Date(utcDate);
-  const month = d.getUTCMonth() + 1; // 1-indexed
-  const day = d.getUTCDate();
-  if (month === 6 && day >= 11 && day <= 27) return 'Group Stage';
-  if (month === 6 && day >= 28) return 'Round of 32';
-  if (month === 7 && day <= 3) return 'Round of 32';
-  if (month === 7 && day >= 4 && day <= 7) return 'Quarter-finals';
-  if (month === 7 && (day === 9 || day === 10)) return 'Semi-finals';
-  if (month === 7 && day === 14) return 'Third Place Play-off';
-  if (month === 7 && (day === 18 || day === 19)) return 'Final';
+  // Numeric YYYYMMDD for easy range comparison
+  const ymd = d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+  if (ymd >= 20260611 && ymd <= 20260627) return 'Group Stage';
+  if (ymd >= 20260628 && ymd <= 20260704) return 'Round of 32';
+  if (ymd >= 20260704 && ymd <= 20260707) return 'Round of 16';
+  if (ymd >= 20260709 && ymd <= 20260712) return 'Quarter-finals';
+  if (ymd >= 20260714 && ymd <= 20260715) return 'Semi-finals';
+  if (ymd === 20260718) return 'Third Place Play-off';
+  if (ymd === 20260719) return 'Final';
   return 'Knockout Stage';
 }
 

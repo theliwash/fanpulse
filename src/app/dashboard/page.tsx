@@ -276,11 +276,14 @@ export default function DashboardPage() {
   }
 
   const tournamentStart = useMemo(() => new Date('2026-06-11T00:00:00Z'), []);
+  const tournamentStartLocal = useMemo(() => new Date('2026-06-11T00:00:00'), []);
   const daysUntil = (() => {
     const now = new Date();
     const diff = tournamentStart.getTime() - now.getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
   })();
+  const isToday = localDateKey(new Date()) === '2026-06-11';
+  const hasStarted = new Date() >= tournamentStartLocal && !isToday;
 
   function getMoodStyles(mood: string) {
     const lower = String(mood).toLowerCase();
@@ -441,7 +444,12 @@ export default function DashboardPage() {
             </h1>
             <p className="text-xs text-zinc-500 mt-1">Real-time World Cup 2026 fan sentiment</p>
             <div className="mt-1 text-xs text-emerald-400">
-              Tournament starts in {daysUntil} day{daysUntil !== 1 ? 's' : ''}
+              {isToday
+                ? 'Tournament starts today! 🎉'
+                : hasStarted
+                  ? 'World Cup 2026 is live! ⚽'
+                  : `Tournament starts in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`
+              }
             </div>
           </div>
           <div className="mt-4 md:mt-0 text-right">

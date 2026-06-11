@@ -1,7 +1,7 @@
 export type FootballMatchSummary = {
   id: number;
-  homeTeam: string;
-  awayTeam: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
   status: string;
   score: { home: number | null; away: number | null } | null;
   utcDate: string;

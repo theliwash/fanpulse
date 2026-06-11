@@ -59,6 +59,20 @@ function formatDateLabel(key: string) {
   };
 }
 
+function getMatchStage(utcDate: string): string {
+  const d = new Date(utcDate);
+  const month = d.getUTCMonth() + 1; // 1-indexed
+  const day = d.getUTCDate();
+  if (month === 6 && day >= 11 && day <= 27) return 'Group Stage';
+  if (month === 6 && day >= 28) return 'Round of 32';
+  if (month === 7 && day <= 3) return 'Round of 32';
+  if (month === 7 && day >= 4 && day <= 7) return 'Quarter-finals';
+  if (month === 7 && (day === 9 || day === 10)) return 'Semi-finals';
+  if (month === 7 && day === 14) return 'Third Place Play-off';
+  if (month === 7 && (day === 18 || day === 19)) return 'Final';
+  return 'Knockout Stage';
+}
+
 export default function DashboardPage() {
   const [matches, setMatches] = useState<FootballMatchSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +173,10 @@ export default function DashboardPage() {
 
   const teamsList = useMemo(() => {
     const set = new Set<string>();
-    matches.forEach((m) => { set.add(m.homeTeam); set.add(m.awayTeam); });
+    matches.forEach((m) => {
+      if (m.homeTeam) set.add(m.homeTeam);
+      if (m.awayTeam) set.add(m.awayTeam);
+    });
     return Array.from(set).sort();
   }, [matches]);
 
@@ -175,7 +192,7 @@ export default function DashboardPage() {
       result = result.filter((m) => localDateKey(new Date(m.utcDate)) === selectedDate);
     }
     if (selectedTeam) {
-      result = result.filter((m) => m.homeTeam === selectedTeam || m.awayTeam === selectedTeam);
+      result = result.filter((m) => (m.homeTeam ?? '') === selectedTeam || (m.awayTeam ?? '') === selectedTeam);
     }
     if (matchTypeFilter === 'LIVE') {
       result = result.filter((m) => liveStatuses.has(m.status));
@@ -279,7 +296,10 @@ export default function DashboardPage() {
     return { bar: '#b91c1c' };
   }
 
-  function FlagCircle({ team }: { team: string }) {
+  function FlagCircle({ team }: { team: string | null }) {
+    if (!team) {
+      return <div className="w-8 h-8 rounded-full bg-zinc-800 shrink-0" />;
+    }
     return (
       <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-sm leading-none shrink-0">
         {TEAM_FLAGS[team] ?? '🏴'}
@@ -287,29 +307,45 @@ export default function DashboardPage() {
     );
   }
 
+  function TeamRow({ team, score }: { team: string | null; score?: number | null }) {
+    if (!team) {
+      return (
+        <div className="flex items-center gap-3">
+          <FlagCircle team={null} />
+          <span className="text-sm text-zinc-500 italic">TBD</span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-3">
+        <FlagCircle team={team} />
+        <Link href={`/nations/${encodeURIComponent(team)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
+          {team}
+        </Link>
+        {score != null && <span className="text-sm font-semibold text-white tabular-nums ml-auto">{score}</span>}
+      </div>
+    );
+  }
+
   function MatchCard({ m }: { m: FootballMatchSummary }) {
     const isLive = liveStatuses.has(m.status);
+    const isTbd = !m.homeTeam || !m.awayTeam;
+    const stage = isTbd ? getMatchStage(m.utcDate) : null;
     return (
       <article className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-800 transition-colors">
+        {stage && (
+          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3">{stage}</div>
+        )}
+
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FlagCircle team={m.homeTeam} />
-            <Link href={`/nations/${encodeURIComponent(m.homeTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
-              {m.homeTeam}
-            </Link>
-          </div>
+          <TeamRow team={m.homeTeam} />
           {isLive && <span className="text-sm font-semibold text-white tabular-nums">{m.score?.home ?? '—'}</span>}
         </div>
 
         <div className="my-2.5 h-px bg-zinc-800" />
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FlagCircle team={m.awayTeam} />
-            <Link href={`/nations/${encodeURIComponent(m.awayTeam)}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors">
-              {m.awayTeam}
-            </Link>
-          </div>
+          <TeamRow team={m.awayTeam} />
           {isLive
             ? <span className="text-sm font-semibold text-white tabular-nums">{m.score?.away ?? '—'}</span>
             : <span className="text-xs text-zinc-400 shrink-0 ml-4">{formatKickoff(m.utcDate)}</span>

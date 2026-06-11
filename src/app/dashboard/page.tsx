@@ -39,17 +39,6 @@ function localDateKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// All 39 World Cup 2026 dates: Jun 11 – Jul 19
-const TOURNAMENT_DATES = (() => {
-  const dates: string[] = [];
-  const d = new Date(2026, 5, 11);
-  const end = new Date(2026, 6, 19);
-  while (d <= end) {
-    dates.push(localDateKey(new Date(d)));
-    d.setDate(d.getDate() + 1);
-  }
-  return dates;
-})();
 
 function formatDateLabel(key: string) {
   const d = new Date(key + 'T00:00:00');
@@ -170,6 +159,11 @@ export default function DashboardPage() {
     });
     return counts;
   }, [matches]);
+
+  const matchDates = useMemo(() =>
+    Object.keys(matchCountByDate).sort(),
+    [matchCountByDate]
+  );
 
   const teamsList = useMemo(() => {
     const set = new Set<string>();
@@ -488,9 +482,9 @@ export default function DashboardPage() {
                 >
                   All dates
                 </button>
-                {TOURNAMENT_DATES.map((key) => {
+                {matchDates.map((key) => {
                   const { day, date } = formatDateLabel(key);
-                  const count = matchCountByDate[key] ?? 0;
+                  const count = matchCountByDate[key];
                   return (
                     <button
                       key={key}
@@ -503,7 +497,7 @@ export default function DashboardPage() {
                         <span className="text-zinc-500 w-7 text-xs shrink-0">{day}</span>
                         <span>{date}</span>
                       </span>
-                      {count > 0 && <span className="text-xs text-zinc-500 ml-3">{count}</span>}
+                      <span className="text-xs text-zinc-500 ml-3">{count} match{count !== 1 ? 'es' : ''}</span>
                     </button>
                   );
                 })}

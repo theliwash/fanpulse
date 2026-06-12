@@ -14,6 +14,9 @@ type FootballDataMatchDetail = {
   utcDate: string;
   homeTeam: { name: string };
   awayTeam: { name: string };
+  score?: {
+    fullTime?: { home: number | null; away: number | null };
+  };
   goals?: FootballDataGoal[];
 };
 
@@ -64,6 +67,8 @@ export async function GET(request: NextRequest) {
       homeTeam: match.homeTeam.name,
       awayTeam: match.awayTeam.name,
       utcDate: match.utcDate,
+      homeScore: match.score?.fullTime?.home ?? null,
+      awayScore: match.score?.fullTime?.away ?? null,
     };
 
     return NextResponse.json(payload);

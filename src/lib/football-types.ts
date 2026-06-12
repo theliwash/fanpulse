@@ -19,4 +19,6 @@ export type MatchEventsResponse = {
   homeTeam: string;
   awayTeam: string;
   utcDate: string;
+  homeScore: number | null;
+  awayScore: number | null;
 };

@@ -239,9 +239,15 @@ export default function DashboardPage() {
 
       let status: string | undefined;
       let goals: unknown;
+      let homeScore: number | null = null;
+      let awayScore: number | null = null;
       if (typeof eventsData === 'object' && eventsData !== null) {
         status = (eventsData as { status?: unknown }).status as string | undefined;
         goals = (eventsData as { goals?: unknown }).goals;
+        const hs = (eventsData as { homeScore?: unknown }).homeScore;
+        const as = (eventsData as { awayScore?: unknown }).awayScore;
+        homeScore = typeof hs === 'number' ? hs : null;
+        awayScore = typeof as === 'number' ? as : null;
       }
 
       const payload = {
@@ -251,6 +257,8 @@ export default function DashboardPage() {
         status: status ?? '',
         goals: Array.isArray(goals) ? goals : [],
         userReactions: [],
+        homeScore,
+        awayScore,
       };
 
       const analyzeResp = await fetch("/api/sentiment/analyze", {
@@ -355,6 +363,14 @@ export default function DashboardPage() {
             : <span className="text-xs text-zinc-400 shrink-0 ml-4">{formatKickoff(m.utcDate)}</span>
           }
         </div>
+
+        {isFinished && m.homeTeam && m.awayTeam && m.score && (
+          <div className="my-3 text-center">
+            <div className="text-lg font-bold text-white">
+              {m.homeTeam} {m.score.home ?? '—'} - {m.score.away ?? '—'} {m.awayTeam}
+            </div>
+          </div>
+        )}
 
         <div className="mt-3 flex items-center justify-between">
           {isLive ? (

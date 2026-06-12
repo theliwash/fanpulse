@@ -58,7 +58,7 @@ function safeParseJsonArray(input: string): unknown[] {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { matchId, homeTeam, awayTeam, status, goals = [], userReactions = [] } = body ?? {};
+    const { matchId, homeTeam, awayTeam, status, goals = [], userReactions = [], homeScore, awayScore } = body ?? {};
 
     if (!matchId || typeof matchId !== 'string') {
       return NextResponse.json({ error: 'matchId (string) is required' }, { status: 400 });
@@ -70,13 +70,23 @@ export async function POST(request: NextRequest) {
 
     const goalsText = Array.isArray(goals) && goals.length > 0
       ? goals.map((g: Goal) => `${g.minute}' - ${g.scorer} (${g.team})`).join(', ')
-      : 'No goals yet';
+      : null;
+
+    const scoreText = goalsText == null && homeScore != null && awayScore != null
+      ? `Final score: ${homeTeam} ${homeScore} - ${awayScore} ${awayTeam}`
+      : null;
+
+    const matchInfo = [
+      `Match: ${homeTeam} vs ${awayTeam}`,
+      `Status: ${status}`,
+      scoreText || `Goals: ${goalsText || 'No goals yet'}`,
+    ].join('\n');
 
     const reactionsText = Array.isArray(userReactions) && userReactions.length > 0
       ? userReactions.map((r: UserReaction) => `${r.nation}: ${r.reaction_text}`).join('\n')
       : 'None yet';
 
-    const userPrompt = `Match: ${homeTeam} vs ${awayTeam}\nStatus: ${status}\nGoals: ${goalsText}\nUser reactions: ${reactionsText}\n\nReturn a JSON array with one object per team containing:\n- nation (string)\n- sentiment_score (integer -100 to 100)\n- mood_label (one of: Euphoric, Confident, Nervous, Frustrated, Devastated, Furious, Neutral)\n- top_emotion (single word)\n- key_talking_point (max 12 words)\n\nONLY return the JSON array. No explanation, no markdown.`;
+    const userPrompt = `${matchInfo}\nUser reactions: ${reactionsText}\n\nReturn a JSON array with one object per team containing:\n- nation (string)\n- sentiment_score (integer -100 to 100)\n- mood_label (one of: Euphoric, Confident, Nervous, Frustrated, Devastated, Furious, Neutral)\n- top_emotion (single word)\n- key_talking_point (max 12 words)\n\nONLY return the JSON array. No explanation, no markdown.`;
 
     const groqApiKey = process.env.GROQ_API_KEY;
     if (!groqApiKey) {

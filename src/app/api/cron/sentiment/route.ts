@@ -52,9 +52,15 @@ export async function GET() {
         const eventsData: unknown = await eventsRes.json();
         let status: string | undefined;
         let goals: unknown;
+        let homeScore: number | null = null;
+        let awayScore: number | null = null;
         if (typeof eventsData === "object" && eventsData !== null) {
           status = (eventsData as { status?: unknown }).status as string | undefined;
           goals = (eventsData as { goals?: unknown }).goals;
+          const hs = (eventsData as { homeScore?: unknown }).homeScore;
+          const as = (eventsData as { awayScore?: unknown }).awayScore;
+          homeScore = typeof hs === "number" ? hs : null;
+          awayScore = typeof as === "number" ? as : null;
         }
 
         // Post to sentiment analysis
@@ -70,6 +76,8 @@ export async function GET() {
               status: status ?? "",
               goals: Array.isArray(goals) ? goals : [],
               userReactions: [],
+              homeScore,
+              awayScore,
             }),
             cache: "no-store",
           }

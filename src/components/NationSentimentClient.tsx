@@ -286,12 +286,6 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
                 </div>
                 </div>
 
-                <div className="mt-4 bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-4">
-                  <div className="text-gray-400 text-sm">Most recent</div>
-                  <div className="text-white font-semibold">{timeline[timeline.length - 1].top_emotion}</div>
-                  <div className="text-gray-300">{timeline[timeline.length - 1].key_talking_point}</div>
-                </div>
-
                 {/* AI vs Reality Panel */}
                 <div className="mt-6 bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-4">
                   <h3 className="text-lg font-semibold text-white mb-4">AI vs Reality</h3>

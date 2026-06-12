@@ -75,7 +75,7 @@ export default function DashboardPage() {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [matchTypeFilter, setMatchTypeFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING'>('ALL');
+  const [matchTypeFilter, setMatchTypeFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'RESULTS'>('ALL');
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [teamSearch, setTeamSearch] = useState('');
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
@@ -192,6 +192,8 @@ export default function DashboardPage() {
       result = result.filter((m) => liveStatuses.has(m.status));
     } else if (matchTypeFilter === 'UPCOMING') {
       result = result.filter((m) => upcomingStatuses.has(m.status));
+    } else if (matchTypeFilter === 'RESULTS') {
+      result = result.filter((m) => m.status === 'FINISHED');
     }
     return result;
   }, [matches, selectedDate, selectedTeam, matchTypeFilter, liveStatuses, upcomingStatuses]);
@@ -326,24 +328,29 @@ export default function DashboardPage() {
 
   function MatchCard({ m }: { m: FootballMatchSummary }) {
     const isLive = liveStatuses.has(m.status);
+    const isFinished = m.status === 'FINISHED';
     const isTbd = !m.homeTeam || !m.awayTeam;
     const stage = isTbd ? getMatchStage(m.utcDate) : null;
     return (
-      <article className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-800 transition-colors">
+      <article className={`border rounded-xl p-4 transition-colors ${
+        isFinished
+          ? 'bg-zinc-800 border-zinc-700 hover:bg-zinc-700'
+          : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800'
+      }`}>
         {stage && (
           <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3">{stage}</div>
         )}
 
         <div className="flex items-center justify-between">
           <TeamRow team={m.homeTeam} />
-          {isLive && <span className="text-sm font-semibold text-white tabular-nums">{m.score?.home ?? '—'}</span>}
+          {(isLive || isFinished) && <span className="text-sm font-semibold text-white tabular-nums">{m.score?.home ?? '—'}</span>}
         </div>
 
         <div className="my-2.5 h-px bg-zinc-800" />
 
         <div className="flex items-center justify-between">
           <TeamRow team={m.awayTeam} />
-          {isLive
+          {isLive || isFinished
             ? <span className="text-sm font-semibold text-white tabular-nums">{m.score?.away ?? '—'}</span>
             : <span className="text-xs text-zinc-400 shrink-0 ml-4">{formatKickoff(m.utcDate)}</span>
           }
@@ -355,7 +362,11 @@ export default function DashboardPage() {
               <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse inline-block" />
               LIVE
             </div>
-          ) : <div />}
+          ) : isFinished ? (
+            <div className="text-xs text-zinc-500">FT</div>
+          ) : (
+            <div />
+          )}
           {isLive && (
             <div className="flex items-center gap-3">
               <button
@@ -578,7 +589,7 @@ export default function DashboardPage() {
           <div className="h-6 w-px bg-zinc-700" />
 
           {/* Type pills */}
-          {(['ALL', 'LIVE', 'UPCOMING'] as const).map((type) => (
+          {(['ALL', 'LIVE', 'UPCOMING', 'RESULTS'] as const).map((type) => (
             <button
               key={type}
               onClick={() => setMatchTypeFilter(type)}

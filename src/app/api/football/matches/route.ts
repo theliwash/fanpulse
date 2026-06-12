@@ -5,7 +5,7 @@ const API_BASE = "https://api.football-data.org/v4";
 const CACHE_SECONDS = 60;
 
 type FootballDataTeam = {
-  name: string;
+  name: string | null;
 };
 
 type FootballDataScore = {
@@ -40,30 +40,28 @@ function simplifyMatch(match: FootballDataMatch): FootballMatchSummary {
 
   return {
     id: match.id,
-    homeTeam: match.homeTeam.name,
-    awayTeam: match.awayTeam.name,
+    homeTeam: match.homeTeam.name ?? null,
+    awayTeam: match.awayTeam.name ?? null,
     status: match.status,
     score,
     utcDate: match.utcDate,
   };
 }
 
-async function fetchMatchesByStatus(
-  status: "LIVE" | "SCHEDULED",
-  apiKey: string
-): Promise<FootballMatchSummary[]> {
-  const url = `${API_BASE}/competitions/WC/matches?status=${status}`;
-  const response = await fetch(url, {
-    headers: { "X-Auth-Token": apiKey },
-    next: { revalidate: CACHE_SECONDS },
-  });
+function sortMatches(matches: FootballMatchSummary[]): FootballMatchSummary[] {
+  const todayKey = new Date().toISOString().slice(0, 10);
 
-  if (!response.ok) {
-    throw new Error(`football-data.org returned ${response.status}`);
+  function rank(m: FootballMatchSummary): number {
+    if (m.status === 'LIVE' || m.status === 'IN_PLAY') return 0;
+    if (m.status === 'FINISHED' && m.utcDate.slice(0, 10) === todayKey) return 1;
+    return 2;
   }
 
-  const data = (await response.json()) as FootballDataMatchesResponse;
-  return (data.matches ?? []).map(simplifyMatch);
+  return [...matches].sort((a, b) => {
+    const dr = rank(a) - rank(b);
+    if (dr !== 0) return dr;
+    return new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime();
+  });
 }
 
 export async function GET() {
@@ -76,13 +74,20 @@ export async function GET() {
   }
 
   try {
-    let matches = await fetchMatchesByStatus("LIVE", apiKey);
+    const url = `${API_BASE}/competitions/WC/matches`;
+    const response = await fetch(url, {
+      headers: { "X-Auth-Token": apiKey },
+      next: { revalidate: CACHE_SECONDS },
+    });
 
-    if (matches.length === 0) {
-      matches = await fetchMatchesByStatus("SCHEDULED", apiKey);
+    if (!response.ok) {
+      throw new Error(`football-data.org returned ${response.status}`);
     }
 
-    return NextResponse.json(matches);
+    const data = (await response.json()) as FootballDataMatchesResponse;
+    const matches = (data.matches ?? []).map(simplifyMatch);
+
+    return NextResponse.json(sortMatches(matches));
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to fetch matches";

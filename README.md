@@ -38,3 +38,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 =======
 # fanpulse
 >>>>>>> a13b1f9ab23c56d25d90f2b37b8c923200c32452
+# FanPulse

@@ -71,7 +71,6 @@ export default function DashboardPage() {
   const [sentiments, setSentiments] = useState<Record<string, SentimentResult[]>>({});
   const [analysingIds, setAnalysingIds] = useState<Record<string, boolean>>({});
   const [analyseErrors, setAnalyseErrors] = useState<Record<string, string>>({});
-  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -110,17 +109,26 @@ export default function DashboardPage() {
   const EMOJI_REACTIONS = [
     { key: 'fire', emoji: '🔥', label: 'Fire' },
     { key: 'shocked', emoji: '😱', label: 'Shocked' },
-    { key: 'gutted', emoji: '😭', label: 'Gutted' },
+    { key: 'sad', emoji: '😭', label: 'Sad' },
     { key: 'angry', emoji: '😤', label: 'Angry' },
     { key: 'party', emoji: '🎉', label: 'Party' },
-  ];
+  ] as const;
 
-  const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
+  const [emojiCounts, setEmojiCounts] = useState<Record<string, { fire: number; shocked: number; sad: number; angry: number; party: number }>>({});
 
-  const incrementReaction = useCallback((matchId: string, key: string) => {
-    setReactions((prev) => {
-      const cur = prev[matchId] ?? {};
-      return { ...prev, [matchId]: { ...cur, [key]: (cur[key] ?? 0) + 1 } };
+  const incrementEmojiReaction = useCallback((matchId: string, emoji: 'fire' | 'shocked' | 'sad' | 'angry' | 'party') => {
+    fetch('/api/reactions/emoji', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId, emoji }),
+    }).catch((err) => console.error('Failed to save emoji reaction:', err));
+
+    setEmojiCounts((prev) => {
+      const cur = prev[matchId] ?? { fire: 0, shocked: 0, sad: 0, angry: 0, party: 0 };
+      return {
+        ...prev,
+        [matchId]: { ...cur, [emoji]: (cur[emoji] ?? 0) + 1 },
+      };
     });
   }, []);
 
@@ -215,6 +223,19 @@ export default function DashboardPage() {
 
   const displayedUpcomingMatches = showAllUpcoming ? upcomingMatches : upcomingMatches.slice(0, 8);
 
+  useEffect(() => {
+    liveMatches.forEach((m) => {
+      if (!emojiCounts[String(m.id)]) {
+        fetch(`/api/reactions/emoji?matchId=${String(m.id)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            setEmojiCounts((prev) => ({ ...prev, [String(m.id)]: data }));
+          })
+          .catch((err) => console.error(`Failed to fetch emoji counts for match ${m.id}:`, err));
+      }
+    });
+  }, [liveMatches]);
+
   const selectedDateLabel = useMemo(() => {
     if (!selectedDate) return null;
     const todayKey = localDateKey(new Date());
@@ -250,6 +271,8 @@ export default function DashboardPage() {
         awayScore = typeof as === 'number' ? as : null;
       }
 
+      const currentEmojiCounts = emojiCounts[String(match.id)] || { fire: 0, shocked: 0, sad: 0, angry: 0, party: 0 };
+
       const payload = {
         matchId: String(match.id),
         homeTeam: match.homeTeam,
@@ -259,6 +282,7 @@ export default function DashboardPage() {
         userReactions: [],
         homeScore,
         awayScore,
+        emojiCounts: currentEmojiCounts,
       };
 
       const analyzeResp = await fetch("/api/sentiment/analyze", {
@@ -392,12 +416,6 @@ export default function DashboardPage() {
               >
                 {analysingIds[String(m.id)] ? 'Analysing…' : 'Analyse'}
               </button>
-              <button
-                onClick={() => setExpandedMatchId((prev) => prev === String(m.id) ? null : String(m.id))}
-                className="text-xs text-zinc-400 hover:text-white transition-colors"
-              >
-                {expandedMatchId === String(m.id) ? 'Hide' : 'Details'}
-              </button>
             </div>
           )}
         </div>
@@ -435,11 +453,11 @@ export default function DashboardPage() {
             <div className="text-xs text-zinc-500 mb-2">Fan reactions</div>
             <div className="flex items-center gap-2 flex-wrap">
               {EMOJI_REACTIONS.map((r) => {
-                const count = reactions[String(m.id)]?.[r.key] ?? 0;
+                const count = emojiCounts[String(m.id)]?.[r.key as keyof typeof emojiCounts[string]] ?? 0;
                 return (
                   <button
                     key={r.key}
-                    onClick={() => incrementReaction(String(m.id), r.key)}
+                    onClick={() => incrementEmojiReaction(String(m.id), r.key as 'fire' | 'shocked' | 'sad' | 'angry' | 'party')}
                     className="bg-zinc-800 hover:bg-zinc-700 rounded-full px-2.5 py-1.5 flex items-center gap-1.5 transition-colors"
                   >
                     <span className="text-sm">{r.emoji}</span>

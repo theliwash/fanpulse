@@ -63,6 +63,20 @@ export async function GET() {
           awayScore = typeof as === "number" ? as : null;
         }
 
+        // Fetch emoji counts for this match
+        let emojiCounts = { fire: 0, shocked: 0, sad: 0, angry: 0, party: 0 };
+        try {
+          const emojiRes = await fetch(
+            `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/reactions/emoji?matchId=${String(matchId)}`,
+            { cache: "no-store" }
+          );
+          if (emojiRes.ok) {
+            emojiCounts = await emojiRes.json();
+          }
+        } catch (err) {
+          console.error(`Failed to fetch emoji counts for match ${matchId}:`, err);
+        }
+
         // Post to sentiment analysis
         const analyzeRes = await fetch(
           `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/sentiment/analyze`,
@@ -78,6 +92,7 @@ export async function GET() {
               userReactions: [],
               homeScore,
               awayScore,
+              emojiCounts,
             }),
             cache: "no-store",
           }

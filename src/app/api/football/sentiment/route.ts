@@ -58,7 +58,7 @@ function safeParseJsonArray(input: string): unknown[] {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { matchId, homeTeam, awayTeam, status, goals = [], userReactions = [], homeScore, awayScore } = body ?? {};
+    const { matchId, homeTeam, awayTeam, status, goals = [], userReactions = [], homeScore, awayScore, emojiCounts } = body ?? {};
 
     if (!matchId || typeof matchId !== 'string') {
       return NextResponse.json({ error: 'matchId (string) is required' }, { status: 400 });
@@ -86,7 +86,19 @@ export async function POST(request: NextRequest) {
       ? userReactions.map((r: UserReaction) => `${r.nation}: ${r.reaction_text}`).join('\n')
       : 'None yet';
 
-    const userPrompt = `${matchInfo}\nUser reactions: ${reactionsText}\n\nReturn a JSON array with one object per team containing:\n- nation (string)\n- sentiment_score (integer -100 to 100)\n- mood_label (one of: Euphoric, Confident, Nervous, Frustrated, Devastated, Furious, Neutral)\n- top_emotion (single word)\n- key_talking_point (max 12 words)\n\nONLY return the JSON array. No explanation, no markdown.`;
+    const emojiLine = (() => {
+      if (!emojiCounts || typeof emojiCounts !== 'object') return '';
+      const ec = emojiCounts as Record<string, number>;
+      const hasAny = Object.values(ec).some((v) => typeof v === 'number' && v > 0);
+      if (!hasAny) return '';
+      return `Fan emoji reactions: 🔥 ${ec.fire ?? 0}, 😱 ${ec.shocked ?? 0}, 😭 ${ec.sad ?? 0}, 😤 ${ec.angry ?? 0}, 🎉 ${ec.party ?? 0}`;
+    })();
+
+    const promptParts = [matchInfo, `User reactions: ${reactionsText}`];
+    if (emojiLine) promptParts.push(emojiLine);
+    promptParts.push('\nReturn a JSON array with one object per team containing:\n- nation (string)\n- sentiment_score (integer -100 to 100)\n- mood_label (one of: Euphoric, Confident, Nervous, Frustrated, Devastated, Furious, Neutral)\n- top_emotion (single word)\n- key_talking_point (max 12 words)\n\nONLY return the JSON array. No explanation, no markdown.');
+
+    const userPrompt = promptParts.join('\n');
 
     const groqApiKey = process.env.GROQ_API_KEY;
     if (!groqApiKey) {

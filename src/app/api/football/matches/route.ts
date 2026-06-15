@@ -52,7 +52,7 @@ function sortMatches(matches: FootballMatchSummary[]): FootballMatchSummary[] {
   const todayKey = new Date().toISOString().slice(0, 10);
 
   function rank(m: FootballMatchSummary): number {
-    if (m.status === 'LIVE' || m.status === 'IN_PLAY') return 0;
+    if (m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED') return 0;
     if (m.status === 'FINISHED' && m.utcDate.slice(0, 10) === todayKey) return 1;
     return 2;
   }

@@ -157,7 +157,7 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [fetchMatches]);
 
-  const liveStatuses = useMemo(() => new Set(["LIVE", "IN_PLAY"]), []);
+  const liveStatuses = useMemo(() => new Set(["LIVE", "IN_PLAY", "PAUSED"]), []);
   const upcomingStatuses = useMemo(() => new Set(["TIMED", "SCHEDULED", "UPCOMING"]), []);
 
   const matchCountByDate = useMemo(() => {

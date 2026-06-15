@@ -30,7 +30,7 @@ export async function GET() {
     }
 
     const liveMatches = (matches as FootballMatchSummary[]).filter(
-      (m) => m.status === "LIVE" || m.status === "IN_PLAY"
+      (m) => m.status === "LIVE" || m.status === "IN_PLAY" || m.status === "PAUSED"
     );
 
     let processedCount = 0;

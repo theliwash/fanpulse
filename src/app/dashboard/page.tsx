@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from 'next/link';
 import type { FootballMatchSummary } from "@/lib/football-types";
@@ -63,7 +63,7 @@ function getMatchStage(utcDate: string): string {
   return 'Knockout Stage';
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -795,5 +795,13 @@ export default function DashboardPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -76,7 +76,7 @@ async function fetchMatchEvents(matchId: number) {
 
   const match = (await response.json()) as FootballDataMatch;
 
-  const goals = (match.goals ?? []).map((goal: any) => ({
+  const goals = (match.goals ?? []).map((goal: FootballDataGoal) => ({
     minute: goal.minute,
     scorer: goal.scorer.name,
     team: goal.team.name,
@@ -125,14 +125,34 @@ async function fetchEmojiCounts(matchId: string) {
   return counts;
 }
 
-async function analyzeSentiment(payload: any) {
+interface AnalyzeSentimentPayload {
+  matchId: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  status: string;
+  goals: unknown;
+  userReactions?: unknown;
+  homeScore: number | null;
+  awayScore: number | null;
+  emojiCounts: Record<string, number>;
+}
+
+async function analyzeSentiment(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid payload');
+  }
+
+  const p = payload as AnalyzeSentimentPayload;
   const groqApiKey = process.env.GROQ_API_KEY;
   if (!groqApiKey) throw new Error("GROQ_API_KEY not configured");
 
-  const { matchId, homeTeam, awayTeam, status, goals, userReactions = [], homeScore, awayScore, emojiCounts } = payload;
+  const { matchId, homeTeam, awayTeam, status, goals, userReactions = [], homeScore, awayScore, emojiCounts } = p;
 
   const goalsText = Array.isArray(goals) && goals.length > 0
-    ? goals.map((g: any) => `${g.minute}' - ${g.scorer} (${g.team})`).join(', ')
+    ? goals.map((g: unknown) => {
+        const goal = g as { minute: number; scorer: string; team: string };
+        return `${goal.minute}' - ${goal.scorer} (${goal.team})`;
+      }).join(', ')
     : null;
 
   const scoreText = goalsText == null && homeScore != null && awayScore != null
@@ -146,7 +166,10 @@ async function analyzeSentiment(payload: any) {
   ].join('\n');
 
   const reactionsText = Array.isArray(userReactions) && userReactions.length > 0
-    ? userReactions.map((r: any) => `${r.nation}: ${r.reaction_text}`).join('\n')
+    ? userReactions.map((r: unknown) => {
+        const reaction = r as { nation: string; reaction_text: string };
+        return `${reaction.nation}: ${reaction.reaction_text}`;
+      }).join('\n')
     : 'None yet';
 
   const emojiLine = (() => {
@@ -203,16 +226,25 @@ async function analyzeSentiment(payload: any) {
   }
 
   const supabase = createServerClient();
-  const rows = parsed.map((item: any) => ({
-    match_id: String(matchId),
-    nation: item.nation,
-    sentiment_score: Math.max(-100, Math.min(100, Math.round(item.sentiment_score))),
-    mood_label: item.mood_label,
-    top_emotion: item.top_emotion,
-    key_talking_point: item.key_talking_point,
-    comment_count: Array.isArray(userReactions) ? userReactions.length : 0,
-    source: 'reddit',
-  }));
+  const rows = parsed.map((item: unknown) => {
+    const sentiment = item as {
+      nation: string;
+      sentiment_score: number;
+      mood_label: string;
+      top_emotion: string;
+      key_talking_point: string;
+    };
+    return {
+      match_id: String(matchId),
+      nation: sentiment.nation,
+      sentiment_score: Math.max(-100, Math.min(100, Math.round(sentiment.sentiment_score))),
+      mood_label: sentiment.mood_label,
+      top_emotion: sentiment.top_emotion,
+      key_talking_point: sentiment.key_talking_point,
+      comment_count: Array.isArray(userReactions) ? userReactions.length : 0,
+      source: 'reddit',
+    };
+  });
 
   const { error } = await supabase.from('sentiment_snapshots').insert(rows);
   if (error) {

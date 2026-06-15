@@ -48,6 +48,18 @@ function simplifyMatch(match: FootballDataMatch): FootballMatchSummary {
   };
 }
 
+function correctStaleLiveStatus(matches: FootballMatchSummary[]): FootballMatchSummary[] {
+  const now = new Date();
+  const threeHoursMs = 3 * 60 * 60 * 1000;
+
+  return matches.map((m) => {
+    if ((m.status === 'LIVE' || m.status === 'IN_PLAY') && now.getTime() - new Date(m.utcDate).getTime() > threeHoursMs) {
+      return { ...m, status: 'FINISHED' };
+    }
+    return m;
+  });
+}
+
 function sortMatches(matches: FootballMatchSummary[]): FootballMatchSummary[] {
   const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -86,8 +98,9 @@ export async function GET() {
 
     const data = (await response.json()) as FootballDataMatchesResponse;
     const matches = (data.matches ?? []).map(simplifyMatch);
+    const corrected = correctStaleLiveStatus(matches);
 
-    return NextResponse.json(sortMatches(matches));
+    return NextResponse.json(sortMatches(corrected));
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to fetch matches";

@@ -203,6 +203,7 @@ export default function DashboardPage() {
       result = result.filter((m) => upcomingStatuses.has(m.status));
     } else if (matchTypeFilter === 'RESULTS') {
       result = result.filter((m) => m.status === 'FINISHED');
+      result = result.sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime());
     }
     return result;
   }, [matches, selectedDate, selectedTeam, matchTypeFilter, liveStatuses, upcomingStatuses]);

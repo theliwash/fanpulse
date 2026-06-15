@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from 'next/link';
 import type { FootballMatchSummary } from "@/lib/football-types";
 import { TEAM_FLAGS } from "@/lib/flags";
@@ -63,6 +64,9 @@ function getMatchStage(utcDate: string): string {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [matches, setMatches] = useState<FootballMatchSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,15 +79,46 @@ export default function DashboardPage() {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [expandedFinishedMatchId, setExpandedFinishedMatchId] = useState<string | null>(null);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [matchTypeFilter, setMatchTypeFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'RESULTS'>('ALL');
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(searchParams.get('date'));
+  const [matchTypeFilter, setMatchTypeFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'RESULTS'>(
+    (searchParams.get('filter') as 'ALL' | 'LIVE' | 'UPCOMING' | 'RESULTS') || 'ALL'
+  );
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(searchParams.get('team'));
   const [teamSearch, setTeamSearch] = useState('');
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
   const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
 
   const dateDropdownRef = useRef<HTMLDivElement>(null);
   const teamDropdownRef = useRef<HTMLDivElement>(null);
+
+  const updateDate = useCallback((date: string | null) => {
+    setSelectedDate(date);
+    const params = new URLSearchParams(searchParams.toString());
+    if (date) {
+      params.set('date', date);
+    } else {
+      params.delete('date');
+    }
+    router.push(`/dashboard?${params.toString()}`);
+  }, [searchParams, router]);
+
+  const updateFilter = useCallback((filter: 'ALL' | 'LIVE' | 'UPCOMING' | 'RESULTS') => {
+    setMatchTypeFilter(filter);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('filter', filter);
+    router.push(`/dashboard?${params.toString()}`);
+  }, [searchParams, router]);
+
+  const updateTeam = useCallback((team: string | null) => {
+    setSelectedTeam(team);
+    const params = new URLSearchParams(searchParams.toString());
+    if (team) {
+      params.set('team', team);
+    } else {
+      params.delete('team');
+    }
+    router.push(`/dashboard?${params.toString()}`);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!dateDropdownOpen) return;
@@ -601,7 +636,7 @@ export default function DashboardPage() {
             {dateDropdownOpen && (
               <div className="absolute top-full left-0 mt-1 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl p-2 max-h-80 overflow-y-auto z-50 min-w-[220px] scrollbar-hide">
                 <button
-                  onClick={() => { setSelectedDate(null); setDateDropdownOpen(false); }}
+                  onClick={() => { updateDate(null); setDateDropdownOpen(false); }}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                     selectedDate === null ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                   }`}
@@ -614,7 +649,7 @@ export default function DashboardPage() {
                   return (
                     <button
                       key={key}
-                      onClick={() => { setSelectedDate(key); setDateDropdownOpen(false); }}
+                      onClick={() => { updateDate(key); setDateDropdownOpen(false); }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
                         selectedDate === key ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                       }`}
@@ -665,7 +700,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="p-2 max-h-72 overflow-y-auto scrollbar-hide">
                   <button
-                    onClick={() => { setSelectedTeam(null); setTeamDropdownOpen(false); setTeamSearch(''); }}
+                    onClick={() => { updateTeam(null); setTeamDropdownOpen(false); setTeamSearch(''); }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                       selectedTeam === null ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                     }`}
@@ -675,7 +710,7 @@ export default function DashboardPage() {
                   {filteredTeamsList.map((team) => (
                     <button
                       key={team}
-                      onClick={() => { setSelectedTeam(team); setTeamDropdownOpen(false); setTeamSearch(''); }}
+                      onClick={() => { updateTeam(team); setTeamDropdownOpen(false); setTeamSearch(''); }}
                       className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                         selectedTeam === team ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                       }`}
@@ -699,7 +734,7 @@ export default function DashboardPage() {
           {(['ALL', 'LIVE', 'UPCOMING', 'RESULTS'] as const).map((type) => (
             <button
               key={type}
-              onClick={() => setMatchTypeFilter(type)}
+              onClick={() => updateFilter(type)}
               className={matchTypeFilter === type ? pillActive : pillInactive}
             >
               {type}

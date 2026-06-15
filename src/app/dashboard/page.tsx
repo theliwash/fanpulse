@@ -71,6 +71,7 @@ export default function DashboardPage() {
   const [sentiments, setSentiments] = useState<Record<string, SentimentResult[]>>({});
   const [analysingIds, setAnalysingIds] = useState<Record<string, boolean>>({});
   const [analyseErrors, setAnalyseErrors] = useState<Record<string, string>>({});
+  const [finishedSentiments, setFinishedSentiments] = useState<Record<string, SentimentResult[]>>({});
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -235,6 +236,25 @@ export default function DashboardPage() {
       }
     });
   }, [liveMatches]);
+
+  useEffect(() => {
+    const finishedMatches = matches.filter((m) => m.status === 'FINISHED');
+    finishedMatches.forEach((m) => {
+      if (m.homeTeam && m.awayTeam && !finishedSentiments[String(m.id)]) {
+        Promise.all([
+          fetch(`/api/sentiment/nation?nation=${encodeURIComponent(m.homeTeam)}&match_id=${String(m.id)}`).then((r) => r.json()),
+          fetch(`/api/sentiment/nation?nation=${encodeURIComponent(m.awayTeam)}&match_id=${String(m.id)}`).then((r) => r.json()),
+        ])
+          .then(([homeData, awayData]) => {
+            const allSentiments = [...(Array.isArray(homeData) ? homeData : []), ...(Array.isArray(awayData) ? awayData : [])];
+            if (allSentiments.length > 0) {
+              setFinishedSentiments((prev) => ({ ...prev, [String(m.id)]: allSentiments }));
+            }
+          })
+          .catch((err) => console.error(`Failed to fetch sentiment for finished match ${m.id}:`, err));
+      }
+    });
+  }, [matches, finishedSentiments]);
 
   const selectedDateLabel = useMemo(() => {
     if (!selectedDate) return null;
@@ -424,9 +444,9 @@ export default function DashboardPage() {
           <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>
         )}
 
-        {sentiments[String(m.id)] && (
+        {(sentiments[String(m.id)] || finishedSentiments[String(m.id)]) && (
           <div className="mt-3 space-y-3 border-t border-zinc-800 pt-3">
-            {sentiments[String(m.id)].map((r) => {
+            {(sentiments[String(m.id)] || finishedSentiments[String(m.id)]).map((r) => {
               const widthPercent = Math.max(0, Math.min(100, (r.sentiment_score + 100) / 2));
               const styles = getMoodStyles(r.mood_label);
               return (

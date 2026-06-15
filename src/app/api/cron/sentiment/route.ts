@@ -256,40 +256,93 @@ export async function GET() {
   try {
     const matches = await fetchAllMatches();
 
+    const allStatuses = Array.from(new Set(matches.map((m) => m.status)));
+    console.log('All match statuses found:', allStatuses);
+
     const liveMatches = matches.filter(
-      (m) => m.status === "LIVE" || m.status === "IN_PLAY" || m.status === "PAUSED"
+      (m) =>
+        m.status === "LIVE" ||
+        m.status === "IN_PLAY" ||
+        m.status === "PAUSED" ||
+        m.status === "HALFTIME" ||
+        m.status === "EXTRA_TIME" ||
+        m.status === "PENALTY" ||
+        m.status === "SUSPENDED" ||
+        m.status === "INTERRUPTED"
     );
+
+    const now = new Date();
+    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const recentlyFinishedMatches = matches.filter((m) => {
+      if (m.status !== "FINISHED") return false;
+      const matchDate = new Date(m.utcDate);
+      return matchDate >= last24Hours;
+    });
+
+    console.log(`Found ${liveMatches.length} live/active matches, ${recentlyFinishedMatches.length} recently finished matches`);
 
     let processedCount = 0;
     let errorCount = 0;
+    const supabase = createServerClient();
+
+    const processMatch = async (match: FootballMatchSummary) => {
+      const eventsData = await fetchMatchEvents(match.id);
+      const emojiCounts = await fetchEmojiCounts(String(match.id));
+
+      await analyzeSentiment({
+        matchId: String(match.id),
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+        status: eventsData.status,
+        goals: eventsData.goals,
+        userReactions: [],
+        homeScore: eventsData.homeScore,
+        awayScore: eventsData.awayScore,
+        emojiCounts,
+      });
+    };
 
     for (const match of liveMatches) {
       try {
-        const eventsData = await fetchMatchEvents(match.id);
-        const emojiCounts = await fetchEmojiCounts(String(match.id));
-
-        await analyzeSentiment({
-          matchId: String(match.id),
-          homeTeam: match.homeTeam,
-          awayTeam: match.awayTeam,
-          status: eventsData.status,
-          goals: eventsData.goals,
-          userReactions: [],
-          homeScore: eventsData.homeScore,
-          awayScore: eventsData.awayScore,
-          emojiCounts,
-        });
-
+        await processMatch(match);
         processedCount++;
       } catch (err) {
-        console.error(`Error processing match ${match.id}:`, err);
+        console.error(`Error processing live match ${match.id}:`, err);
+        errorCount++;
+      }
+    }
+
+    for (const match of recentlyFinishedMatches) {
+      try {
+        const { data: existing } = await supabase
+          .from('sentiment_snapshots')
+          .select('created_at')
+          .eq('match_id', String(match.id))
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          const lastSnapshot = new Date(existing[0].created_at);
+          const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+          if (lastSnapshot > twoHoursAgo) {
+            console.log(`Skipping finished match ${match.id}, sentiment already analyzed recently`);
+            continue;
+          }
+        }
+
+        await processMatch(match);
+        processedCount++;
+      } catch (err) {
+        console.error(`Error processing finished match ${match.id}:`, err);
         errorCount++;
       }
     }
 
     return NextResponse.json({
       success: true,
+      allStatuses,
       liveMatches: liveMatches.length,
+      recentlyFinished: recentlyFinishedMatches.length,
       processed: processedCount,
       errors: errorCount,
       timestamp: new Date().toISOString(),

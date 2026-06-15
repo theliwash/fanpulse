@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const [analyseErrors, setAnalyseErrors] = useState<Record<string, string>>({});
   const [finishedSentiments, setFinishedSentiments] = useState<Record<string, SentimentResult[]>>({});
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const [expandedFinishedMatchId, setExpandedFinishedMatchId] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [matchTypeFilter, setMatchTypeFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'RESULTS'>('ALL');
@@ -384,12 +385,23 @@ export default function DashboardPage() {
     const isFinished = m.status === 'FINISHED';
     const isTbd = !m.homeTeam || !m.awayTeam;
     const stage = isTbd ? getMatchStage(m.utcDate) : null;
+    const isExpanded = expandedFinishedMatchId === String(m.id);
+
+    const handleFinishedCardClick = () => {
+      if (isFinished) {
+        setExpandedFinishedMatchId(isExpanded ? null : String(m.id));
+      }
+    };
+
     return (
-      <article className={`border rounded-xl p-4 transition-colors ${
-        isFinished
-          ? 'bg-zinc-800 border-zinc-700 hover:bg-zinc-700'
-          : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800'
-      }`}>
+      <article
+        onClick={handleFinishedCardClick}
+        className={`border rounded-xl p-4 transition-all ${
+          isFinished
+            ? `cursor-pointer bg-zinc-800 border-zinc-700 hover:bg-zinc-700 ${isExpanded ? 'ring-1 ring-emerald-400' : ''}`
+            : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800'
+        }`}
+      >
         {stage && (
           <div className="text-xs text-zinc-500 uppercase tracking-wider mb-3">{stage}</div>
         )}
@@ -424,7 +436,17 @@ export default function DashboardPage() {
               LIVE
             </div>
           ) : isFinished ? (
-            <div className="text-xs text-zinc-500">FT</div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-500">FT</span>
+              <svg
+                className={`w-4 h-4 text-zinc-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </div>
           ) : (
             <div />
           )}
@@ -445,9 +467,39 @@ export default function DashboardPage() {
           <div className="text-xs text-red-400 mt-2">{analyseErrors[String(m.id)]}</div>
         )}
 
-        {(sentiments[String(m.id)] || finishedSentiments[String(m.id)]) && (
+        {isFinished && isExpanded && (
+          <div className="mt-4 border-t border-zinc-700 pt-4">
+            {finishedSentiments[String(m.id)] ? (
+              <div className="space-y-3">
+                {finishedSentiments[String(m.id)].map((r) => {
+                  const widthPercent = Math.max(0, Math.min(100, (r.sentiment_score + 100) / 2));
+                  const styles = getMoodStyles(r.mood_label);
+                  return (
+                    <div key={r.nation}>
+                      <div className="flex items-center justify-between mb-1">
+                        <Link href={`/nations/${encodeURIComponent(r.nation)}`} className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white transition-colors">
+                          <span>{TEAM_FLAGS[r.nation] ?? '🏴'}</span>
+                          <span>{r.nation}</span>
+                        </Link>
+                        <span className="text-xs font-medium text-white">{r.mood_label}</span>
+                      </div>
+                      <div className="w-full bg-zinc-800 rounded-full h-1">
+                        <div style={{ width: `${widthPercent}%`, height: '100%', borderRadius: 9999, background: styles.bar }} />
+                      </div>
+                      <div className="text-xs text-zinc-500 mt-1">{r.key_talking_point}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-500">No analysis available for this match</div>
+            )}
+          </div>
+        )}
+
+        {isLive && (sentiments[String(m.id)]) && (
           <div className="mt-3 space-y-3 border-t border-zinc-800 pt-3">
-            {(sentiments[String(m.id)] || finishedSentiments[String(m.id)]).map((r) => {
+            {sentiments[String(m.id)].map((r) => {
               const widthPercent = Math.max(0, Math.min(100, (r.sentiment_score + 100) / 2));
               const styles = getMoodStyles(r.mood_label);
               return (

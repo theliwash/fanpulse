@@ -314,6 +314,8 @@ export async function GET() {
 
     for (const match of recentlyFinishedMatches) {
       try {
+        const matchEndTime = new Date(new Date(match.utcDate).getTime() + 100 * 60 * 1000);
+
         const { data: existing } = await supabase
           .from('sentiment_snapshots')
           .select('created_at')
@@ -323,9 +325,8 @@ export async function GET() {
 
         if (existing && existing.length > 0) {
           const lastSnapshot = new Date(existing[0].created_at);
-          const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-          if (lastSnapshot > twoHoursAgo) {
-            console.log(`Skipping finished match ${match.id}, sentiment already analyzed recently`);
+          if (lastSnapshot > matchEndTime) {
+            console.log(`Skipping finished match ${match.id}, sentiment already analyzed after match end`);
             continue;
           }
         }

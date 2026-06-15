@@ -49,6 +49,9 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
   const positiveColor = '#10b981';
   const negativeColor = '#ef4444';
 
+  const selectedMatch = matches.find((m) => String(m.id) === String(selectedMatchId));
+  const matchIsFinished = selectedMatch?.status === 'FINISHED';
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -286,66 +289,68 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
                 </div>
                 </div>
 
-                {/* AI vs Reality Panel */}
-                <div className="mt-6 bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-4">
-                  <h3 className="text-lg font-semibold text-white mb-4">AI vs Reality</h3>
-                  {!comparisonData?.predictions || comparisonData.predictions.length === 0 ? (
-                    <div>
-                      <div className="text-gray-400 text-sm mb-3">No prediction yet for this match</div>
-                      <button
-                        onClick={handleGeneratePrediction}
-                        disabled={generatingPrediction}
-                        className="bg-blue-600 hover:bg-blue-500 text-white rounded px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
-                      >
-                        {generatingPrediction ? 'Generating…' : 'Generate Pre-match Prediction'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {comparisonData.predictions.map((pred) => {
-                        const actual = comparisonData.actuals?.find((a) => a.nation === pred.nation);
-                        const isCorrect = actual && actual.mood_label === pred.predicted_mood;
-                        const hasActualData = !!actual;
+                {/* AI vs Reality Panel - only show when match is finished */}
+                {matchIsFinished && (
+                  <div className="mt-6 bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-4">
+                    <h3 className="text-lg font-semibold text-white mb-4">AI vs Reality</h3>
+                    {!comparisonData?.predictions || comparisonData.predictions.length === 0 ? (
+                      <div>
+                        <div className="text-gray-400 text-sm mb-3">No prediction yet for this match</div>
+                        <button
+                          onClick={handleGeneratePrediction}
+                          disabled={generatingPrediction}
+                          className="bg-blue-600 hover:bg-blue-500 text-white rounded px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {generatingPrediction ? 'Generating…' : 'Generate Pre-match Prediction'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {comparisonData.predictions.map((pred) => {
+                          const actual = comparisonData.actuals?.find((a) => a.nation === pred.nation);
+                          const isCorrect = actual && actual.mood_label === pred.predicted_mood;
+                          const hasActualData = !!actual;
 
-                        return (
-                          <div key={pred.nation} className="bg-gray-800 rounded p-3 border border-gray-700">
-                            <div className="text-white font-semibold mb-2">{TEAM_FLAGS[pred.nation] ?? ''} {pred.nation}</div>
-                            <div className="grid grid-cols-3 gap-2 text-sm">
-                              <div>
-                                <div className="text-gray-400">AI Predicted</div>
-                                <div className="text-white">{pred.predicted_mood}</div>
-                                <div className="text-xs text-gray-500">{pred.predicted_score}</div>
-                                <div className="text-xs text-gray-400 mt-1">{pred.reasoning}</div>
-                              </div>
+                          return (
+                            <div key={pred.nation} className="bg-gray-800 rounded p-3 border border-gray-700">
+                              <div className="text-white font-semibold mb-2">{TEAM_FLAGS[pred.nation] ?? ''} {pred.nation}</div>
+                              <div className="grid grid-cols-3 gap-2 text-sm">
+                                <div>
+                                  <div className="text-gray-400">AI Predicted</div>
+                                  <div className="text-white">{pred.predicted_mood}</div>
+                                  <div className="text-xs text-gray-500">{pred.predicted_score}</div>
+                                  <div className="text-xs text-gray-400 mt-1">{pred.reasoning}</div>
+                                </div>
 
-                              <div className="flex flex-col justify-center items-center">
-                                {hasActualData ? (
-                                  <div className={`text-xs font-semibold px-2 py-1 rounded ${isCorrect ? 'bg-emerald-900 text-emerald-300' : 'bg-red-900 text-red-300'}`}>
-                                    {isCorrect ? '✓ Correct' : '✗ Wrong'}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-gray-500">—</div>
-                                )}
-                              </div>
+                                <div className="flex flex-col justify-center items-center">
+                                  {hasActualData ? (
+                                    <div className={`text-xs font-semibold px-2 py-1 rounded ${isCorrect ? 'bg-emerald-900 text-emerald-300' : 'bg-red-900 text-red-300'}`}>
+                                      {isCorrect ? '✓ Correct' : '✗ Wrong'}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-gray-500">—</div>
+                                  )}
+                                </div>
 
-                              <div>
-                                <div className="text-gray-400">Actual</div>
-                                {hasActualData ? (
-                                  <>
-                                    <div className="text-white">{actual!.mood_label}</div>
-                                    <div className="text-xs text-gray-500">{actual!.sentiment_score}</div>
-                                  </>
-                                ) : (
-                                  <div className="text-xs text-gray-500">Available after kickoff</div>
-                                )}
+                                <div>
+                                  <div className="text-gray-400">Actual</div>
+                                  {hasActualData ? (
+                                    <>
+                                      <div className="text-white">{actual!.mood_label}</div>
+                                      <div className="text-xs text-gray-500">{actual!.sentiment_score}</div>
+                                    </>
+                                  ) : (
+                                    <div className="text-xs text-gray-500">—</div>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

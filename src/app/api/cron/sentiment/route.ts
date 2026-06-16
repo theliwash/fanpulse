@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { FootballMatchSummary } from "@/lib/football-types";
 import { createServerClient } from "@/lib/supabase";
 
+export const dynamic = 'force-dynamic';
+
 const API_BASE = "https://api.football-data.org/v4";
 
 type FootballDataTeam = {

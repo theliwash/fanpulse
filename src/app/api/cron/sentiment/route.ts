@@ -280,8 +280,8 @@ export async function GET() {
 
         if (existing && existing.length > 0) {
           const lastSnapshot = new Date(existing[0].created_at);
-          const matchUtcDate = new Date(match.utcDate);
-          if (lastSnapshot > matchUtcDate) {
+          const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+          if (lastSnapshot > thirtyMinutesAgo) {
             continue;
           }
         }

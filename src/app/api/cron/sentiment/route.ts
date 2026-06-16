@@ -257,94 +257,63 @@ export async function GET() {
     const matches = await fetchAllMatches();
     const now = new Date();
     const supabase = createServerClient();
-
-    const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    const activeMatches = matches.filter((m) => {
+    const matchesToAnalyse = matches.filter((m) => {
       const matchTime = new Date(m.utcDate);
-      return matchTime >= threeHoursAgo && matchTime <= now;
+      return matchTime < now && matchTime >= twentyFourHoursAgo;
     });
 
-    const recentlyFinishedMatches = matches.filter((m) => {
-      const matchTime = new Date(m.utcDate);
-      return matchTime >= twentyFourHoursAgo && matchTime < threeHoursAgo;
-    });
-
-    console.log(`Found ${activeMatches.length} active matches (utcDate within last 3 hours), ${recentlyFinishedMatches.length} recently finished matches (3-24 hours ago)`);
+    console.log(`Found ${matches.length} total matches, ${matchesToAnalyse.length} kicked off in last 24 hours`);
 
     let processedCount = 0;
     let errorCount = 0;
-    const matchEndBuffer = 90 * 60 * 1000;
 
-    const processMatch = async (match: FootballMatchSummary) => {
-      const eventsData = await fetchMatchEvents(match.id);
-      const emojiCounts = await fetchEmojiCounts(String(match.id));
-
-      await analyzeSentiment({
-        matchId: String(match.id),
-        homeTeam: match.homeTeam,
-        awayTeam: match.awayTeam,
-        status: eventsData.status,
-        goals: eventsData.goals,
-        userReactions: [],
-        homeScore: eventsData.homeScore,
-        awayScore: eventsData.awayScore,
-        emojiCounts,
-      });
-    };
-
-    const shouldSkipMatch = async (matchId: number, matchUtcDate: string): Promise<boolean> => {
-      const matchEndTime = new Date(new Date(matchUtcDate).getTime() + matchEndBuffer);
-      const { data: existing } = await supabase
-        .from('sentiment_snapshots')
-        .select('created_at')
-        .eq('match_id', String(matchId))
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (existing && existing.length > 0) {
-        const lastSnapshot = new Date(existing[0].created_at);
-        if (lastSnapshot > matchEndTime) {
-          console.log(`Skipping match ${matchId}, sentiment snapshot exists after match end time`);
-          return true;
-        }
-      }
-      return false;
-    };
-
-    for (const match of activeMatches) {
+    for (const match of matchesToAnalyse) {
       try {
-        if (await shouldSkipMatch(match.id, match.utcDate)) {
-          console.log(`Skipping active match ${match.id}`);
-          continue;
+        const { data: existing } = await supabase
+          .from('sentiment_snapshots')
+          .select('created_at')
+          .eq('match_id', String(match.id))
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          const lastSnapshot = new Date(existing[0].created_at);
+          const matchUtcDate = new Date(match.utcDate);
+          if (lastSnapshot > matchUtcDate) {
+            continue;
+          }
         }
-        await processMatch(match);
+
+        const eventsData = await fetchMatchEvents(match.id);
+        const emojiCounts = await fetchEmojiCounts(String(match.id));
+
+        await analyzeSentiment({
+          matchId: String(match.id),
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          status: eventsData.status,
+          goals: eventsData.goals,
+          userReactions: [],
+          homeScore: eventsData.homeScore,
+          awayScore: eventsData.awayScore,
+          emojiCounts,
+        });
+
         processedCount++;
       } catch (err) {
-        console.error(`Error processing active match ${match.id}:`, err);
+        console.error(`Error processing match ${match.id}:`, err);
         errorCount++;
       }
     }
 
-    for (const match of recentlyFinishedMatches) {
-      try {
-        if (await shouldSkipMatch(match.id, match.utcDate)) {
-          console.log(`Skipping recently finished match ${match.id}`);
-          continue;
-        }
-        await processMatch(match);
-        processedCount++;
-      } catch (err) {
-        console.error(`Error processing recently finished match ${match.id}:`, err);
-        errorCount++;
-      }
-    }
+    console.log(`Processed ${processedCount} matches, ${errorCount} errors`);
 
     return NextResponse.json({
       success: true,
-      activeMatches: activeMatches.length,
-      recentlyFinished: recentlyFinishedMatches.length,
+      totalMatches: matches.length,
+      matchesToAnalyse: matchesToAnalyse.length,
       processed: processedCount,
       errors: errorCount,
       timestamp: new Date().toISOString(),

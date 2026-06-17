@@ -57,45 +57,62 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
       setLoading(true);
       setLoadingMatches(true);
       try {
-        const snapRes = await fetch(`/api/sentiment/nation?nation=${encodeURIComponent(nation)}`);
-        const snaps = (await snapRes.json()) as Snapshot[];
+        const [matchesRes, snapsRes] = await Promise.all([
+          fetch('/api/football/matches'),
+          fetch(`/api/sentiment/nation?nation=${encodeURIComponent(nation)}`),
+        ]);
+
+        const allMatches = (await matchesRes.json()) as any[];
+        const snaps = (await snapsRes.json()) as Snapshot[];
 
         setAllSnapshots(Array.isArray(snaps) ? snaps : []);
 
-        const uniqueMatchIds = Array.from(new Set(snaps?.map((s) => String(s.match_id)) ?? []));
-
-        const matchDetailsArray = await Promise.all(
-          uniqueMatchIds.map((matchId) =>
-            fetch(`/api/football/match-events?match_id=${encodeURIComponent(matchId)}`)
-              .then((res) => res.json())
-              .then((data) => ({ matchId, ...data }))
-              .catch(() => ({ matchId }))
-          )
+        const nationMatches = (Array.isArray(allMatches) ? allMatches : []).filter(
+          (m: any) => m.homeTeam === nation || m.awayTeam === nation
         );
 
         const options: { matchId: string; label: string; date?: string }[] = [];
         const matchSummaries: MatchSummary[] = [];
 
-        matchDetailsArray.forEach((details) => {
-          const homeTeam: string = details.homeTeam ?? '';
-          const awayTeam: string = details.awayTeam ?? '';
-          const utcDate: string | undefined = details.utcDate;
-          const status: string = details.status ?? '';
-          if (homeTeam && awayTeam) {
-            options.push({ matchId: details.matchId, label: `${homeTeam} vs ${awayTeam}`, date: utcDate });
-            matchSummaries.push({ id: details.matchId, homeTeam, awayTeam, utcDate: utcDate ?? '', status });
-          }
+        nationMatches.forEach((m: any) => {
+          const matchId = String(m.id);
+          const label = `${m.homeTeam ?? 'TBD'} vs ${m.awayTeam ?? 'TBD'}`;
+          options.push({ matchId, label, date: m.utcDate });
+          matchSummaries.push({
+            id: matchId,
+            homeTeam: m.homeTeam ?? '',
+            awayTeam: m.awayTeam ?? '',
+            utcDate: m.utcDate ?? '',
+            status: m.status ?? '',
+          });
         });
 
         options.sort((a, b) => {
-          if (a.date && b.date) return new Date(a.date).getTime() - new Date(b.date).getTime();
-          return a.matchId.localeCompare(b.matchId);
+          if (a.date && b.date) return new Date(b.date).getTime() - new Date(a.date).getTime();
+          return b.matchId.localeCompare(a.matchId);
         });
+
+        const now = new Date();
+        let defaultMatchId = options[0]?.matchId;
+        const liveMatch = matchSummaries.find((m) => m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED');
+        if (liveMatch) {
+          defaultMatchId = String(liveMatch.id);
+        } else {
+          const finishedMatches = matchSummaries.filter((m) => m.status === 'FINISHED').sort((a, b) => new Date(b.utcDate).getTime() - new Date(a.utcDate).getTime());
+          if (finishedMatches.length > 0) {
+            defaultMatchId = String(finishedMatches[0].id);
+          } else {
+            const upcomingMatches = matchSummaries.filter((m) => new Date(m.utcDate) > now).sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+            if (upcomingMatches.length > 0) {
+              defaultMatchId = String(upcomingMatches[0].id);
+            }
+          }
+        }
 
         setMatchOptions(options);
         setMatches(matchSummaries);
         setLoadingMatches(false);
-        if (options.length > 0) setSelectedMatchId(options[0].matchId);
+        if (defaultMatchId) setSelectedMatchId(defaultMatchId);
       } catch (err) {
         console.error('Failed to load nation data', err);
         setLoadingMatches(false);

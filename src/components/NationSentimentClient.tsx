@@ -397,6 +397,14 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
                 </button>
               </div>
             )}
+
+            {/* Prediction locked block - show when match is not finished but prediction exists */}
+            {!matchIsFinished && selectedMatch && comparisonData?.predictions && comparisonData.predictions.length > 0 && (
+              <div className="mt-6 bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                <h3 className="text-lg font-semibold text-white mb-2">AI vs Reality</h3>
+                <p className="text-gray-400 text-sm">Prediction locked in. Check back after the match to see how the AI compared to reality.</p>
+              </div>
+            )}
           </div>
         ) : (
           <div>

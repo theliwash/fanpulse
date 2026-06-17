@@ -289,6 +289,21 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
                 </div>
                 </div>
 
+                {/* Pre-match prediction block - show when match is not finished and no prediction exists */}
+                {!matchIsFinished && selectedMatch && (!comparisonData?.predictions || comparisonData.predictions.length === 0) && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mt-4">
+                    <h3 className="text-lg font-semibold text-white mb-2">AI vs Reality</h3>
+                    <p className="text-zinc-400 text-sm mb-3">Generate a pre-match prediction before kickoff. After the match, see how the AI compared to reality.</p>
+                    <button
+                      onClick={handleGeneratePrediction}
+                      disabled={generatingPrediction}
+                      className="bg-blue-600 hover:bg-blue-500 text-white rounded px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {generatingPrediction ? 'Generating…' : 'Generate Pre-match Prediction'}
+                    </button>
+                  </div>
+                )}
+
                 {/* AI vs Reality Panel - only show when match is finished */}
                 {matchIsFinished && (
                   <div className="mt-6 bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-800 rounded-2xl p-4">

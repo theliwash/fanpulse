@@ -254,22 +254,98 @@ async function analyzeSentiment(payload: unknown) {
   }
 }
 
+async function generatePredictions(matchId: string, homeTeam: string | null, awayTeam: string | null) {
+  if (!homeTeam || !awayTeam) {
+    throw new Error('Missing team names for prediction');
+  }
+
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (!groqApiKey) throw new Error("GROQ_API_KEY not configured");
+
+  const prompt = `Predict pre-match fan sentiment for ${homeTeam} vs ${awayTeam} in the 2026 World Cup. Return a JSON array with two objects, one per team: { nation, predicted_mood (one of: Euphoric/Confident/Nervous/Frustrated/Neutral), predicted_score (integer -100 to 100), reasoning (max 15 words) }`;
+
+  const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${groqApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a football analyst. Return ONLY valid JSON, no markdown, no explanation.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    }),
+  });
+
+  if (!groqResponse.ok) {
+    throw new Error('Groq API error');
+  }
+
+  const groqData = await groqResponse.json();
+  const content = groqData?.choices?.[0]?.message?.content ?? '';
+
+  let predictions: unknown[];
+  try {
+    predictions = JSON.parse(content);
+  } catch {
+    throw new Error('Failed to parse predictions');
+  }
+
+  if (!Array.isArray(predictions) || predictions.length !== 2) {
+    throw new Error('Invalid prediction format');
+  }
+
+  const supabase = createServerClient();
+  const savePredictions = predictions.map((pred: unknown) => {
+    const p = pred as { nation: string; predicted_mood: string; predicted_score: number; reasoning: string };
+    return {
+      match_id: matchId,
+      nation: p.nation,
+      predicted_mood: p.predicted_mood,
+      predicted_score: p.predicted_score,
+      reasoning: p.reasoning,
+    };
+  });
+
+  const { error } = await supabase.from('match_predictions').insert(savePredictions);
+  if (error) {
+    throw new Error('Failed to store predictions');
+  }
+}
+
 export async function GET() {
   try {
     const matches = await fetchAllMatches();
     const now = new Date();
     const supabase = createServerClient();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
     const matchesToAnalyse = matches.filter((m) => {
       const matchTime = new Date(m.utcDate);
       return matchTime < now && matchTime >= twentyFourHoursAgo;
     });
 
-    console.log(`Found ${matches.length} total matches, ${matchesToAnalyse.length} kicked off in last 24 hours`);
+    const upcomingMatches = matches.filter((m) => {
+      const matchTime = new Date(m.utcDate);
+      return matchTime >= now && matchTime <= twoHoursFromNow;
+    });
+
+    console.log(`Found ${matches.length} total matches, ${matchesToAnalyse.length} kicked off in last 24 hours, ${upcomingMatches.length} starting in next 2 hours`);
 
     let processedCount = 0;
     let errorCount = 0;
+    let predictionsGenerated = 0;
 
     for (const match of matchesToAnalyse) {
       try {
@@ -310,7 +386,25 @@ export async function GET() {
       }
     }
 
-    console.log(`Processed ${processedCount} matches, ${errorCount} errors`);
+    for (const match of upcomingMatches) {
+      try {
+        const { data: existing } = await supabase
+          .from('match_predictions')
+          .select('*')
+          .eq('match_id', String(match.id));
+
+        if (existing && existing.length > 0) {
+          continue;
+        }
+
+        await generatePredictions(String(match.id), match.homeTeam, match.awayTeam);
+        predictionsGenerated++;
+      } catch (err) {
+        console.error(`Error generating predictions for match ${match.id}:`, err);
+      }
+    }
+
+    console.log(`Processed ${processedCount} matches, ${errorCount} errors, generated ${predictionsGenerated} predictions`);
 
     return NextResponse.json({
       success: true,
@@ -318,6 +412,7 @@ export async function GET() {
       matchesToAnalyse: matchesToAnalyse.length,
       processed: processedCount,
       errors: errorCount,
+      predictionsGenerated,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

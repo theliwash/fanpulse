@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     const promptParts = [matchInfo, `User reactions: ${reactionsText}`];
     if (emojiLine) promptParts.push(emojiLine);
-    promptParts.push('\nReturn a JSON array with one object per team containing:\n- nation (string)\n- sentiment_score (integer -100 to 100)\n- mood_label (one of: Euphoric, Confident, Nervous, Frustrated, Devastated, Furious, Neutral)\n- top_emotion (single word)\n- key_talking_point (max 12 words)\n\nONLY return the JSON array. No explanation, no markdown.');
+    promptParts.push('\nConsider football context fans would recognise: if a stronger or favoured team only draws or loses against a clearly weaker opponent, that is an underperformance and should be reflected as Frustrated or Devastated, not Neutral. If a weaker team draws or wins against a stronger opponent, that is an overperformance and should be reflected as Confident or Euphoric. The mood_label must be consistent with top_emotion: do not select Neutral if top_emotion expresses any positive or negative feeling such as disappointment, relief, anger, or joy.\n\nReturn a JSON array with one object per team containing:\n- nation (string)\n- sentiment_score (integer -100 to 100)\n- mood_label (one of: Euphoric, Confident, Nervous, Frustrated, Devastated, Furious, Neutral)\n- top_emotion (single word)\n- key_talking_point (max 12 words)\n\nONLY return the JSON array. No explanation, no markdown.');
 
     const userPrompt = promptParts.join('\n');
 

@@ -62,19 +62,31 @@ export default function NationSentimentClient({ nation }: { nation: string }) {
           fetch(`/api/sentiment/nation?nation=${encodeURIComponent(nation)}`),
         ]);
 
-        const allMatches = (await matchesRes.json()) as any[];
+        const allMatches = (await matchesRes.json()) as unknown[];
         const snaps = (await snapsRes.json()) as Snapshot[];
 
         setAllSnapshots(Array.isArray(snaps) ? snaps : []);
 
+        interface ApiMatch {
+          id: number | string;
+          homeTeam?: string;
+          awayTeam?: string;
+          utcDate?: string;
+          status?: string;
+        }
+
         const nationMatches = (Array.isArray(allMatches) ? allMatches : []).filter(
-          (m: any) => m.homeTeam === nation || m.awayTeam === nation
-        );
+          (m: unknown): m is ApiMatch => {
+            if (typeof m !== 'object' || m === null) return false;
+            const match = m as Record<string, unknown>;
+            return typeof match.homeTeam === 'string' || typeof match.awayTeam === 'string';
+          }
+        ).filter((m) => m.homeTeam === nation || m.awayTeam === nation);
 
         const options: { matchId: string; label: string; date?: string }[] = [];
         const matchSummaries: MatchSummary[] = [];
 
-        nationMatches.forEach((m: any) => {
+        nationMatches.forEach((m: ApiMatch) => {
           const matchId = String(m.id);
           const label = `${m.homeTeam ?? 'TBD'} vs ${m.awayTeam ?? 'TBD'}`;
           options.push({ matchId, label, date: m.utcDate });

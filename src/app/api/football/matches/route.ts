@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { FootballMatchSummary } from "@/lib/football-types";
 
+export const dynamic = 'force-dynamic';
+
 const API_BASE = "https://api.football-data.org/v4";
 const CACHE_SECONDS = 60;
 
